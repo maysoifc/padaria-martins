@@ -1,0 +1,15 @@
+:root {
+  --bege-fundo: #F5E6CA;
+  --bege-card: #FFF9EF;
+  --marrom-escuro: #3D2B1F;
+  --dourado: #D4AF37;
+}
+
+body{
+  background-color: var(--bege-fundo);
+  color: var(--marrom-escuro);
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
