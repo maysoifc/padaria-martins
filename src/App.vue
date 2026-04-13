@@ -14,7 +14,6 @@ import ProductCard from './components/ProductCard.vue';
   <header>
 
     <div class="wrapper">
-      <HelloWorld msg="You did it!" />
 
       <nav>
         <RouterLink to="/">Home</RouterLink>
@@ -24,7 +23,6 @@ import ProductCard from './components/ProductCard.vue';
   </header>
 
   <RouterView />
-  <HomeView />
 </template>
 
 <style scoped>
