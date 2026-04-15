@@ -35,4 +35,29 @@ onMounted(() => {
   </main>
 </template>
 <style scoped>
+main{
+  background-color: #F5E9DA;
+  min-height: 100vh;
+}
+
+h2{
+  color: #3D2B1F;
+  padding: 20px 16px 10px;
+  font-family: sans-serif;
+  font-weight: bold;
+}
+
+.meu-carrossel{
+  padding: 10px 16px 50px;
+}
+:deep(.swiper-pagination-bullet){
+  background-color: #8B5E3C;
+  opacity: 0.5;
+}
+
+:deep(.swiper-pagination-bullet-active){
+  background-color: #3D2B1F;
+  width: 10px;
+  height: 10px;
+}
 </style>
