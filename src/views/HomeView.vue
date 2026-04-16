@@ -41,10 +41,13 @@ main{
 }
 
 h2{
-  color: #3D2B1F;
+  color: #5E3023;
   padding: 20px 16px 10px;
-  font-family: sans-serif;
+  font-family: 'Imprima';
   font-weight: bold;
+  text-align: center;
+  font-size: 43px;
+  margin-bottom: 0;
 }
 
 .meu-carrossel{
