@@ -9,6 +9,8 @@ import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
+import Promocoes from '../components/Promocoes.vue';
+
 const { produtos, carregarProdutos } = useProducts();
 const modules = [Pagination];
 
@@ -32,6 +34,8 @@ onMounted(() => {
         <ProductCard :produto="item" />
       </swiper-slide>
     </swiper>
+
+    <Promocoes />
   </main>
 </template>
 <style scoped>
