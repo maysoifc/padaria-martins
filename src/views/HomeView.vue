@@ -21,7 +21,7 @@ onMounted(() => {
 
 <template>
   <main>
-    <h2>Destaques da Semana</h2>
+    <h2 class="titulo-sessao">Destaques da Semana</h2>
 
     <swiper
       :modules="modules"
@@ -44,7 +44,7 @@ main{
   min-height: 100vh;
 }
 
-h2{
+.titulo-sessao{
   color: #5E3023;
   padding: 20px 16px 10px;
   font-family: 'Imprima';
