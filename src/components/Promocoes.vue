@@ -1,9 +1,9 @@
 <script setup>
 const promocoes = [
-  { id: 4, titulo: 'Promoção de pães', dia: 'Todas as Quartas-feiras', imagem: '/img/paes.jpg'},
   { id: 1, titulo: 'Promoção de bebidas', dia: 'Todas as  Segundas-feiras', imagem: 'img/bebidas.jpg'},
-  { id: 3, titulo: 'Promoção de doces', dias: 'Todas as Quintas-feiras', imagem: 'img/doces.jpg'},
-  { id: 2, titulo: 'Promoção de salgados', dia: 'Todas as Terças-feiras', imagem: '/img/assados.jpg' },
+  { id: 2, titulo: 'Promoção de pães', dia: 'Todas as Quartas-feiras', imagem: '/img/paes.jpg'},
+  { id: 3, titulo: 'Promoção de doces', dia: 'Todas as Quintas-feiras', imagem: 'img/doces.jpg'},
+  { id: 4, titulo: 'Promoção de salgados', dia: 'Todas os Sábados', imagem: '/img/assados.jpg' }
 
 ];
 </script>
@@ -23,5 +23,8 @@ const promocoes = [
   </section>
 </template>
 <style scoped>
+.promo-card {
+  background-color: #f5f5f5;
+}
 </style>
 
