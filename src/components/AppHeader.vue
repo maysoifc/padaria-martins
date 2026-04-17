@@ -26,18 +26,15 @@
   background-repeat: no-repeat;
   position: relative;
 }
-
 .banner-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 25px;
+  padding: 0 20px;
+  box-sizing: border-box;
 }
 
 .banner-content {
