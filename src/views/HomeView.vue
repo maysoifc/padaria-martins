@@ -39,10 +39,6 @@ onMounted(() => {
   </main>
 </template>
 <style scoped>
-main{
-  background-color: #F5E9DA;
-  min-height: 100vh;
-}
 
 .titulo-sessao{
   color: #5E3023;
@@ -52,6 +48,7 @@ main{
   text-align: center;
   font-size: 43px;
   margin-bottom: 0;
+  margin-top: 0;
 }
 
 .meu-carrossel{
