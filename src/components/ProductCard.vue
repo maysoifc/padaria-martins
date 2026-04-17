@@ -22,18 +22,25 @@ const props = defineProps({
     }
   };
 </script>
-
 <template>
   <div class="card">
-    <img :src="produto.imagem" :alt="produto.nome_produto">
+    <div class="image-container">
+      <div class="rating-badge" v-if="produto.avaliacao">
+        <i class="fa-solid fa-star star-icon"></i>
+        <span>{{ produto.avaliacao }}</span>
+      </div>
+      <img :src="produto.imagem" :alt="produto.nome_produto">
+    </div>
+
     <h3>{{ produto.nome_produto }}</h3>
+
     <div class="border-top">
-    <p class="preco">R$ {{ produto.preco }}</p>
-     <button class="favorite-btn" @click.stop="toggleFavorito">
-  <i :class="produto.favorito ? 'fas fa-heart' : 'far fa-heart'"
-     :style="{ color: produto.favorito ? '#bba270' : '#bba270' }">
-  </i>
-</button>
+      <p class="preco">R$ {{ produto.preco }}</p>
+      <button class="favorite-btn" @click.stop="toggleFavorito">
+        <i :class="produto.favorito ? 'fas fa-heart' : 'far fa-heart'"
+           :style="{ color: '#bba270' }">
+        </i>
+      </button>
     </div>
   </div>
 </template>
@@ -54,14 +61,38 @@ const props = defineProps({
   transform: translate(-5px) scale(0.98);
   box-shadow: 0 5px 10px rgb(0, 0, 0, 0.1);
 }
+
+.image-container {
+  position: relative;
+  width: 100%;
+}
 .card img {
   width:  100%;
-  height: 140px;
+  height: 160px;
   border-radius: 30px 30px 0 0;
   object-fit: cover;
   aspect-ratio:  1/1;
 }
 
+.rating-badge {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+
+  font-size: 0.8rem;
+  font-weight: bold;
+  z-index: 2;
+}
+.star-icon {
+  color: #ffd700;
+}
 h3{
   color: #6a6059;
   font-size: 1.2rem;
