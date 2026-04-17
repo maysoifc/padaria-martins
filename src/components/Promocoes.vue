@@ -23,33 +23,43 @@ const promocoes = [
   </section>
 </template>
 <style scoped>
+.promocoes-bloco {
+  padding-bottom: 20px;
+}
 .titulo-sessao{
   color: #5E3023;
-  padding: 20px 16px 10px;
+  padding: 24px 16px 12px;
   font-family: 'Imprima';
-  font-weight: bold;
+  font-weight: 700;
   text-align: center;
-  font-size: 43px;
+  font-size: 40px;
   margin: 0;
 }
 .grade-promocoes {
-  padding: 20px 16px;
-}
-
-.grade-promocoes {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  max-width: 500px;
-  margin: 0 auto;
-}
-.promo-card {
-  background-color: #f5f5f5;
-  border-radius: 40px;
-  text-align: center;
-  box-shadow: 0 4px 10px;
+  padding: 0 16px;
+  gap: 12px;
 }
 
+.promo-card {
+  background-color: #ffffff;
+  border-radius: 20px;
+  text-align: center;
+  overflow: hidden;
+  border: 1px solid #eee;
+  transition: transform 0.1s ease;
+}
+
+.promo-card:active {
+  transform: scale(0.96);
+  background-color: #f5f5f5;
+}
+
+.img-weapper {
+  width: 100%;
+  height: 90px;
+}
 .promo-img {
   width: 100%;
   height: 100px;
@@ -58,27 +68,31 @@ const promocoes = [
 }
 
 .promo-info {
-  padding: 12px 8px 25px;
+  padding: 10px;
 }
 
 .promo-info h4 {
   color: #545050;
-  font-size: 1.3rem;
-  margin-bottom: 8px;
-  font-weight: bold;
-  margin-top: 0;
+  font-size: 1rem;
+  margin:0 0 6px 0;
+  font-weight: 600;
   font-family: 'Inter';
 }
 
 .dia-promo {
   background-color: #D9CAB3;
   color:#545050;
-  padding: 5px 12px;
+  padding: 2px 8px;
   border-radius: 15px;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   display: inline-block;
-  font-weight: bolder;
+  font-weight: 700;
+  text-transform: uppercase;
 }
-
+@media (max-width: 320px){
+  .grade-promocoes {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 
