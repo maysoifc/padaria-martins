@@ -18,9 +18,8 @@
   </section>
 </template>
 <style scoped>
-.historia-conteiner {
+.historia-container {
   padding: 40px 20px;
-  background-color: #F5F9;
 }
 
 .titulo-historia {
@@ -30,13 +29,14 @@
   line-height: 1.2;
   margin-bottom: 20px;
   max-width: 90%;
-  margin-left: 30px;
+  margin-top: 0;
 }
 
 .historia-conteudo {
   display: flex;
   align-items: center;
   gap: 20px;
+  margin-bottom: 90px;
 }
 
 .moldura-foto {
@@ -46,7 +46,6 @@
   padding: 10px;
   flex-shrink: 0;
   width: 180px;
-  margin-left: 20px;
 }
 
 .foto-historia {
@@ -71,6 +70,5 @@
   border-top: 4px solid #B89764;
   border-bottom: 4px solid #B89764;
   padding: 10px 0;
-
 }
 </style>

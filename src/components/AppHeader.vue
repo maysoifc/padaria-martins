@@ -31,7 +31,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
+  width: 91.9%;
   height: 84%;
   background-color: rgba(0, 0, 0, 0.4);
   display: flex;
@@ -52,8 +52,10 @@
 .banner-logo {
   flex-shrink: 0;
   margin-top: 0;
-  margin-right: 20px;
+  margin-right: 10px;
+  margin-left: 10px;
   height: 80px;
+  margin-bottom: 20px;
 }
 
 .banner-texts {
