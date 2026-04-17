@@ -42,19 +42,27 @@ onMounted(() => {
 </template>
 <style scoped>
 
+.home-container {
+  width: 100vw;
+  min-height: 100vh;
+}
 .titulo-sessao{
   color: #5E3023;
-  padding: 20px 16px 10px;
   font-family: 'Imprima';
-  font-weight: bold;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  max-width: 90%;
+  margin-top: 10px;
+  margin-left: 20px;
   text-align: center;
-  font-size: 43px;
-  margin-bottom: 0;
-  margin-top: 0;
 }
 
 .meu-carrossel{
+  width: 100%;
   padding: 10px 16px 50px;
+  box-sizing: border-box;
 }
 :deep(.swiper-pagination-bullet){
   background-color: #8B5E3C;
