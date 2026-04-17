@@ -34,17 +34,18 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 80px;
+  min-height: 70px;
   background-color: #ffffff;
   display: flex;
   justify-content: space-around;
   align-items: center;
   border-top: 1px solid #eee;
   z-index: 1000;
+  box-sizing: border-box;
   padding-bottom: env(safe-area-inset-bottom);
-  padding-top: 10px;
 }
-.nav-item{
+
+.nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -52,10 +53,8 @@
   text-decoration: none;
   color: #5E3023;
   font-size: 0.75rem;
-  transition: background-color 0.2s ease;
   width: 100%;
-  height: 100%;
-  position: relative;
+  padding: 10px 0;
 }
 .nav-item i {
   font-size: 22px;
