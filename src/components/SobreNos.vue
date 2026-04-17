@@ -83,10 +83,10 @@
 
 .whatsapp-section {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   margin-top: 30px;
-  padding-bottom: 40px;
+  padding-bottom: 70px;
 }
 
 .whatsapp-btn {
