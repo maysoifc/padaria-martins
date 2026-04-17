@@ -5,7 +5,7 @@ import MenuView from './views/MenuView.vue';
 import ProductDetail from './views/ProductDetail.vue';
 import ProfileView from './views/ProfileView.vue';
 import AppHeader from './components/AppHeader.vue';
-import BottomBav from './components/BottomBav.vue';
+import BottomNav from './components/BottomNav.vue';
 import CategoryBar from './components/CategoryBar.vue';
 import ProductCard from './components/ProductCard.vue';
 </script>
@@ -16,6 +16,7 @@ import ProductCard from './components/ProductCard.vue';
   </header>
 
   <RouterView />
+  <BottomNav />
 </template>
 
 <style scoped>
