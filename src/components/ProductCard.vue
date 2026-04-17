@@ -47,8 +47,9 @@ const props = defineProps({
 
 <style scoped>
 .card {
-  background-color:  #fff;
-  border-radius: 30px;
+  background-color:  #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
   padding-bottom: 20px;
   text-align: center;
   box-shadow: 0.4px 15px rgba(0, 0, 0, 0.05);
@@ -58,64 +59,88 @@ const props = defineProps({
 }
 
 .card:active {
-  transform: translate(-5px) scale(0.98);
+  transform: scale(0.98);
   box-shadow: 0 5px 10px rgb(0, 0, 0, 0.1);
 }
 
 .image-container {
   position: relative;
   width: 100%;
+  height: 150px;
 }
 .card img {
   width:  100%;
-  height: 160px;
+  height: 100%;
   border-radius: 30px 30px 0 0;
   object-fit: cover;
-  aspect-ratio:  1/1;
 }
 
 .rating-badge {
   position: absolute;
-  top: 15px;
-  left: 15px;
+  top: 8px;
+  left: 8px;
   background-color: rgba(0, 0, 0, 0.5);
-  color: #ffffff;
-  padding: 4px 12px;
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 4px 8px;
   border-radius: 20px;
   display: flex;
   align-items: center;
-  gap: 5px;
-
-  font-size: 0.8rem;
+  gap: 4px;
+  font-size: 0.75rem;
   font-weight: bold;
   z-index: 2;
 }
 .star-icon {
   color: #ffd700;
 }
+
+.card-content {
+  padding: 12px;
+  text-align: left;
+}
 h3{
   color: #6a6059;
-  font-size: 1.2rem;
-  font-weight: bolder;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
   text-align: center;
-  margin-top: 12px;
+  margin-top: 8px;
   margin-bottom: 5px;
+  overflow: hidden;
+
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
 }
 
 .preco {
   color: #bba270;
-  font-weight: bold;
-  font-size: 1.3rem;
+  font-weight: 700;
+  font-size: 1.1rem;
   margin-top: 12px;
 }
 
 .favorite-btn{
   background: none;
   border: none;
-  cursor: pointer;
   font-size: 1.5rem;
-  padding: 0;
+  padding: 8px;
   font-size: 1.8rem;
+  cursor: pointer;
+  border: none;
+}
+
+.favorite-btn i {
+  font-size: 1.4rem;
+  color: #bba270;
 }
 
 .border-top{
