@@ -34,8 +34,8 @@
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 70px;
-  background-color: #f1f1f1;
+  height: 80px;
+  background-color: #ffffff;
   display: flex;
   justify-content: space-around;
   align-items: center;
@@ -48,26 +48,35 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-decoration: none;
   color: #5E3023;
-  font-size: 0.8rem;
-  transition: all 0.3s ease;
-  width: 20%;
+  font-size: 0.75rem;
+  transition: background-color 0.2s ease;
+  width: 100%;
   height: 100%;
+  position: relative;
 }
 .nav-item i {
-  font-size: 24px;
+  font-size: 22px;
   margin-bottom: 4px;
   color: #5E3023;
-  transition: color 0.3 ease;
+  transition: transform 0.2s ease, color 0.2 ease;
 }
 .router-link-active {
-  background-color: #f0f0f0;
   color: #d0bd97;
-  font-weight: bold;
+  font-weight: 600;
 }
 .router-link-active i{
   color: #d0bd97;
+  transform: translateY(-2px);
 }
 
+.nav-item:active {
+  background-color: rgba(187, 162, 112, 0.1);
+}
+
+.router-link-active {
+  background-color: transparent ;
+}
 </style>
