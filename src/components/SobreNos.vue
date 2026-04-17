@@ -19,15 +19,16 @@
 </template>
 <style scoped>
 .historia-container {
-  padding: 40px 20px;
+  padding: 32px 16px;
 }
 
 .titulo-historia {
   color: #5E3023;
   font-family: 'Imprima';
-  font-size: 2.2rem;
+  font-size: 1.6rem;
+  font-weight: 800;
   line-height: 1.2;
-  margin-bottom: 20px;
+  margin-bottom: 4px;
   max-width: 90%;
   margin-top: 0;
   margin-left: 20px;
@@ -35,41 +36,43 @@
 
 .historia-conteudo {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 90px;
+  margin-top: 10px;
 }
 
 .moldura-foto {
+  width: 100%;
+  max-width: 350px;
   background-color: #F5F0E6;
-  border: 4px solid #D9CAB3;
-  border-radius: 30px;
-  padding: 10px;
-  flex-shrink: 0;
-  width: 180px;
+  border-radius: 24px;
+  padding: 8px;
+  box-shadow: 04px 12px rgba(0, 0, 0, 0.05);
 }
 
 .foto-historia {
   width: 100%;
-  height: 250px;
-  border-radius: 20px;
-  filter: grayscale(100%);
+  height: 200px;
+  border-radius: 28px;
+  object-fit: cover;
+  filter: grayscale(30%);
   display: block;
 }
 
 
 .texto-historia{
-  flex: 1;
+  width: 100%;
 }
 
 .texto-historia p{
   color: #5E3023;
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: 1.05rem;
+  line-height: 1.6;
   margin: 0;
   text-align: left;
-  border-top: 4px solid #B89764;
-  border-bottom: 4px solid #B89764;
-  padding: 10px 0;
+  border-left: 4px solid #B89764;
+  padding: 8px 0 8px 16px;
 }
 </style>
