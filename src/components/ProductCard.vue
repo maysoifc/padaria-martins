@@ -47,8 +47,9 @@ const props = defineProps({
 
 <style scoped>
 .card {
+  width: 100%;
   background-color:  #ffffff;
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
   padding-bottom: 20px;
   text-align: center;
@@ -56,6 +57,7 @@ const props = defineProps({
   display: flex;
   flex-direction: column;
   align-items: center;
+  box-sizing: border-box;
 }
 
 .card:active {
@@ -70,8 +72,8 @@ const props = defineProps({
 }
 .card img {
   width:  100%;
-  height: 100%;
-  border-radius: 30px 30px 0 0;
+  height: 130px;
+  border-radius: 20px 20px 0 0;
   object-fit: cover;
 }
 
@@ -111,6 +113,7 @@ h3{
   margin-top: 8px;
   margin-bottom: 5px;
   overflow: hidden;
+  margin-top: 0;
 
 }
 
@@ -147,7 +150,9 @@ h3{
   display: flex;
   justify-content: space-between;
   border-top: 3px solid #bba270;
-  width: 80%;
+  width: 90%;
+  align-items: center;
 }
+
 
 </style>
