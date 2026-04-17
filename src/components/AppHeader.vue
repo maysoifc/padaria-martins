@@ -19,7 +19,7 @@
 <style scoped>
 .banner {
   width: 100%;
-  height:  250px;
+  height:  220px;
   background-image: url('/img/banner/banner.jpg');
   background-size: cover;
   background-position: center;
@@ -31,48 +31,56 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 91.9%;
-  height: 84%;
+  width: 100%;
+  height: 100%;
   background-color: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 0 25px;
 }
 
 .banner-content {
   display: flex;
   align-items: center;
   gap: 15px;
-  max-width: 600px;
-  width: 100%;
-  justify-content: flex-start;
 }
 
 .banner-logo {
-  flex-shrink: 0;
-  margin-top: 0;
-  margin-right: 10px;
-  margin-left: 10px;
-  height: 80px;
-  margin-bottom: 20px;
+ width: 80px;
+ height: 80px;
+ object-fit: contain;
+ filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .banner-texts {
   color: #FFFFFF;
-  font-family: 'Times New Roman';
+  font-family: 'Times New Roman', serif;
 }
 
 .banner-titulo {
-  font-size: 3rem;
+  font-size: 2.2rem;
   margin: 0;
-  font-weight: 500;
-  line-height: 1.1;
+  font-weight: 600;
+  line-height: 1;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .banner-slogan {
   font-size: 1.5rem;
-  margin-top: 12px;
-  font-weight: bolder;
+  margin-top: 5px;
+  font-weight: 400;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+@media (max-width: 360px) {
+  .banner-titulo {
+    font-size: 1.8rem;
+  }
+
+  .banner-logo {
+    width: 65px;
+  }
 }
 </style>
