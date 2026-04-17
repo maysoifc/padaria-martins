@@ -26,20 +26,25 @@ const promocoes = [
 .promocoes-bloco {
   padding-bottom: 20px;
 }
-.titulo-sessao{
+.titulo-sessao {
   color: #5E3023;
-  padding: 24px 16px 12px;
   font-family: 'Imprima';
-  font-weight: 700;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 20px auto 10px auto;
   text-align: center;
-  font-size: 40px;
-  margin: 0;
 }
+
 .grade-promocoes {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  width: 100%;
+  max-width: 100%;
   padding: 0 16px;
   gap: 12px;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .promo-card {
