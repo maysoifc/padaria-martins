@@ -30,6 +30,7 @@
   margin-bottom: 20px;
   max-width: 90%;
   margin-top: 0;
+  margin-left: 20px;
 }
 
 .historia-conteudo {
