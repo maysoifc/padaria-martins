@@ -2,13 +2,11 @@
 import { onMounted } from 'vue';
 import { useProducts } from '@/composables/useProducts';
 import ProductCard from '@/components/ProductCard.vue';
-
-// Importações do Swiper para o carrossel
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
-
+import AppHeader from '@/components/AppHeader.vue';
 import Promocoes from '../components/Promocoes.vue';
 import SobreNos from '@/components/SobreNos.vue';
 
@@ -21,6 +19,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <AppHeader />
   <main>
     <h2 class="titulo-sessao">Destaques da Semana</h2>
 

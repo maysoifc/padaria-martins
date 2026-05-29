@@ -9,14 +9,10 @@ import BottomNav from './components/BottomNav.vue';
 import CategoryBar from './components/CategoryBar.vue';
 import ProductCard from './components/ProductCard.vue';
 </script>
-
 <template>
-  <header>
-    <AppHeader />
-  </header>
+  <BottomNav v-if="$route.name !== 'login'" />
 
-  <RouterView />
-  <BottomNav />
+  <router-view />
 </template>
 
 <style scoped>
