@@ -2,7 +2,7 @@
 </script>
 <template>
   <nav class="bottom-nav">
-     <router-link to="/" class="nav-item">
+     <router-link to="/home" class="nav-item">
      <i class="fa-solid fa-house"></i>
         <span>Home</span>
     </router-link>
