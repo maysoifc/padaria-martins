@@ -45,3 +45,32 @@ onMounted(() => {
     </button>
   </div>
 </template>
+
+<style scoped>
+.menu-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 10px 15px;
+  width: 100%;
+}
+
+.btn-categoria {
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid #bba270;
+  background: white;
+  color: #bba270;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  min-width: 70px;
+}
+
+.btn-ativo {
+  background: #bba270 !important;
+  color: white !important;
+}
+</style>
