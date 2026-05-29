@@ -8,8 +8,6 @@ import MenuHeader from "@/components/MenuHeader.vue";
 const { produtos, carregarProdutos } = useProducts();
 const categoriaSelecionada = ref("Todos os produtos");
 const termoBusca = ref("");
-
-// 1. Filtro local para o texto de busca
 const listaFiltrada = computed(() => {
   if (!produtos.value) return [];
   return produtos.value.filter(p =>
@@ -17,7 +15,6 @@ const listaFiltrada = computed(() => {
   );
 });
 
-// 2. Watch para recarregar do banco SEMPRE que a categoria mudar
 watch(categoriaSelecionada, (novaCat) => {
   carregarProdutos(novaCat);
 });
@@ -48,3 +45,38 @@ onMounted(() => carregarProdutos());
   </div>
 </template>
 
+<style scoped>
+.menu-view {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 80px;
+}
+.search-container {
+  padding: 10px 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 450px;
+  padding: 10px 20px;
+  border-radius: 25px;
+  border: 1px solid #e0d5c8;
+  background-color: #fff;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  border-color: #bba270;
+}
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  padding: 15px;
+}
+</style>
