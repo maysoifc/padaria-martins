@@ -66,3 +66,100 @@ onMounted(fetchProduto);
     </button>
   </div>
 </template>
+
+<style scoped>
+.detalhes-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.produto-card {
+  background: white;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+}
+
+.img-wrapper {
+  height: 300px;
+  width: 100%;
+}
+
+.img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.conteudo { padding: 2rem; }
+
+.header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+h1 { font-size: 1.8rem; margin: 0; color: #1a1a1a; letter-spacing: -0.5px; }
+
+.preco {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #bba270;
+  margin-bottom: 2rem;
+}
+
+.detalhes-grid { display: grid; gap: 1.5rem; }
+
+.info-bloco h3 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #999;
+  margin-bottom: 0.4rem;
+}
+
+.btn-carrinho {
+  width: 100%;
+  margin-top: 2rem;
+  background: #1a1a1a;
+  color: white;
+  padding: 1.2rem;
+  border-radius: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s, background 0.3s;
+}
+
+.btn-carrinho:hover {
+  background: #bba270;
+  transform: translateY(-2px);
+}
+
+.btn-voltar {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.6rem 1rem;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-voltar:hover {
+  background: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+</style>
