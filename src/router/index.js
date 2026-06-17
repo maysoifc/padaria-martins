@@ -12,6 +12,7 @@ const router = createRouter({
       path: '/',
       name: 'login',
       component: () => import('../views/LoginView.vue'),
+      meta: { hideNav: true }
     },
     {
       path: '/menu',
@@ -22,9 +23,15 @@ const router = createRouter({
       path: '/perfil',
       name: 'perfil',
       component: () => import('../views/ProfileView.vue'),
+    },
+    {
+      path: '/produto/:id',
+      name: 'produto-detalhes',
+      component: () => import('../components/ProdutosDetalhes.vue'),
+      props: true,
+      meta: { hideNav: true }
     }
   ],
 })
-
 
 export default router

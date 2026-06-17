@@ -10,11 +10,20 @@ import CategoryBar from './components/CategoryBar.vue';
 import ProductCard from './components/ProductCard.vue';
 </script>
 <template>
-  <BottomNav v-if="$route.name !== 'login'" />
+  <div id="app">
+    <BottomNav v-if="!$route.meta.hideNav" />
 
-  <router-view />
+    <main class="content" :class="{ 'no-padding': $route.meta.hideNav }">
+      <router-view />
+    </main>
+  </div>
 </template>
 
 <style scoped>
-
+.content {
+  padding-bottom: 70px;
+}
+.content.no-padding {
+  padding-bottom: 0;
+}
 </style>
