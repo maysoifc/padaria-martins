@@ -1,7 +1,13 @@
 <script setup>
+import { useRouter } from 'vue-router'; 
 const props = defineProps({
   produto: Object
 });
+
+const router = useRouter();
+const irParaDetalhes = () => {
+  router.push(`/produto/${props.produto.idProduto}`);
+};
 
 const getImageUrl = (nomeImagem) => {
   try {
@@ -14,26 +20,23 @@ const getImageUrl = (nomeImagem) => {
 
 const toggleFavorito = async () => {
   const novoStatus = !props.produto.favorito;
-
   try {
     const response = await fetch(`http://127.0.0.1:8000/api/produtos/${props.produto.idProduto}/favorito/`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ favorito: novoStatus })
     });
-
     if (response.ok) {
       props.produto.favorito = novoStatus;
     }
   } catch (error) {
     console.error("Erro ao favoritar", error);
-    alert("Não foi possível favoritar o produto.");
   }
 };
 </script>
 
 <template>
-  <div class="card">
+  <div class="card" @click="irParaDetalhes" style="cursor: pointer;">
     <div class="image-container">
       <div class="rating-badge" v-if="produto.avaliacao">
         <i class="fa-solid fa-star star-icon"></i>
@@ -48,8 +51,7 @@ const toggleFavorito = async () => {
       <p class="preco">R$ {{ produto.preco }}</p>
       <button class="favorite-btn" @click.stop="toggleFavorito">
         <i :class="produto.favorito ? 'fas fa-heart' : 'far fa-heart'"
-           :style="{ color: '#bba270' }">
-        </i>
+           :style="{ color: '#bba270' }"></i>
       </button>
     </div>
   </div>
