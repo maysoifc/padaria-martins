@@ -1,7 +1,7 @@
 <script setup>
-import { useRouter } from 'vue-router'; 
+import { useRouter } from "vue-router";
 const props = defineProps({
-  produto: Object
+  produto: Object,
 });
 
 const router = useRouter();
@@ -21,11 +21,14 @@ const getImageUrl = (nomeImagem) => {
 const toggleFavorito = async () => {
   const novoStatus = !props.produto.favorito;
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/produtos/${props.produto.idProduto}/favorito/`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ favorito: novoStatus })
-    });
+    const response = await fetch(
+      `http://127.0.0.1:8000/api/produtos/${props.produto.idProduto}/favorito/`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorito: novoStatus }),
+      },
+    );
     if (response.ok) {
       props.produto.favorito = novoStatus;
     }
@@ -36,13 +39,13 @@ const toggleFavorito = async () => {
 </script>
 
 <template>
-  <div class="card" @click="irParaDetalhes" style="cursor: pointer;">
+  <div class="card" @click="irParaDetalhes" style="cursor: pointer">
     <div class="image-container">
       <div class="rating-badge" v-if="produto.avaliacao">
         <i class="fa-solid fa-star star-icon"></i>
         <span>{{ produto.avaliacao }}</span>
       </div>
-      <img :src="getImageUrl(produto.imagem)" :alt="produto.nome">
+      <img :src="getImageUrl(produto.imagem)" :alt="produto.nome" />
     </div>
 
     <h3>{{ produto.nome }}</h3>
@@ -50,8 +53,10 @@ const toggleFavorito = async () => {
     <div class="border-top">
       <p class="preco">R$ {{ produto.preco }}</p>
       <button class="favorite-btn" @click.stop="toggleFavorito">
-        <i :class="produto.favorito ? 'fas fa-heart' : 'far fa-heart'"
-           :style="{ color: '#bba270' }"></i>
+        <i
+          :class="produto.favorito ? 'fas fa-heart' : 'far fa-heart'"
+          :style="{ color: '#bba270' }"
+        ></i>
       </button>
     </div>
   </div>
