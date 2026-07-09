@@ -1,68 +1,58 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import InfoCard from "@/components/InfoCard.vue";
 
-const usuario = ref({
-  username: "Carregando...",
-  email: "Aguardando...",
-  foto_perfil: null
-});
-const fileInput = ref(null);
+const router = useRouter();
 
-const carregarPerfil = async () => {
-  const token = localStorage.getItem("token");
-  try {
-    const response = await fetch("http://127.0.0.1:8000/api/perfil/", {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
-    });
-
-    if (response.ok) {
-      usuario.value = await response.json();
-    } else {
-      console.warn("Sem autorização, usando dados padrão");
-    }
-  } catch (err) {
-    console.error("Erro na conexão:", err);
-  }
+const navegarPara = (rota) => {
+  router.push(rota);
 };
-
-const atualizarFoto = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append('foto_perfil', file);
-
-  const token = localStorage.getItem("token");
-  await fetch("http://127.0.0.1:8000/api/perfil/", {
-    method: "PATCH",
-    headers: { "Authorization": `Bearer ${token}` },
-    body: formData
-  });
-  carregarPerfil();
-};
-
-onMounted(carregarPerfil);
 </script>
 
 <template>
-  <div class="profile-view">
-    <InfoCard>
-      <input type="file" ref="fileInput" @change="atualizarFoto" style="display: none" accept="image/*" />
+  <div class="perfil-view">
+    <h1 class="header-title">Meu Perfil</h1>
 
-      <div class="avatar-usuario" @click="fileInput.click()" style="cursor: pointer;">
-        <img :src="usuario.foto_perfil || '/default-avatar.png'" alt="Foto" />
-        <div class="overlay-editar">Editar</div>
+    <div class="profile-card">
+      <InfoCard />
+    </div>
+
+    <div class="actions-container">
+      <h3 class="section-title">Pedidos</h3>
+      <div class="list-item" @click="navegarPara('/novamente')">
+        <i class="fas fa-redo"></i> <span>Comprar novamente</span>
+        <i class="fas fa-chevron-right arrow"></i>
+      </div>
+      <div class="list-item" @click="navegarPara('/pedidos/favoritos')">
+        <i class="fas fa-heart"></i> <span>Favoritos</span>
+        <i class="fas fa-chevron-right arrow"></i>
+      </div>
+      <div class="list-item" @click="navegarPara('/pedidos/avaliados')">
+        <i class="fas fa-star"></i> <span>Avaliados</span>
+        <i class="fas fa-chevron-right arrow"></i>
+      </div>
+      <div class="list-item" @click="navegarPara('/pedidos/preparados')">
+        <i class="fas fa-utensils"></i> <span>Preparados</span>
+        <i class="fas fa-chevron-right arrow"></i>
       </div>
 
-      <div class="info-usuario">
-        <h2>{{ usuario.username }}</h2>
-        <p>{{ usuario.email }}</p>
+      <h3 class="section-title">Carteira</h3>
+      <div class="list-item" @click="navegarPara('/detalhes/carteira/cupons')">
+        <i class="fas fa-ticket-alt"></i> <span>Meus Cupons</span>
+        <i class="fas fa-chevron-right arrow"></i>
       </div>
-    </InfoCard>
+      <div class="list-item" @click="navegarPara('/detalhes/carteira/selos')">
+        <i class="fas fa-certificate"></i> <span>Meus Selos</span>
+        <i class="fas fa-chevron-right arrow"></i>
+      </div>
+      <div class="list-item" @click="navegarPara('/detalhes/carteira/cartoes')">
+        <i class="fas fa-credit-card"></i> <span>Meus Cartões</span>
+        <i class="fas fa-chevron-right arrow"></i>
+      </div>
+
+      <button class="btn-logout" @click="navegarPara('/')">
+        <i class="fas fa-sign-out-alt"></i> Sair da conta
+      </button>
+    </div>
   </div>
 </template>
