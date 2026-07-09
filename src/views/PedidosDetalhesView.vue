@@ -42,6 +42,7 @@ const mudarAba = (id) => router.push(`/pedidos/${id}`);
     </div>
   </div>
 </template>
+
 <style scoped>
 .pedidos-view {
   padding: 2rem 1.5rem;
