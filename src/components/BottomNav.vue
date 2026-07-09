@@ -1,10 +1,11 @@
 <script>
 </script>
+
 <template>
   <nav class="bottom-nav">
      <router-link to="/home" class="nav-item">
-     <i class="fa-solid fa-house"></i>
-        <span>Home</span>
+       <i class="fa-solid fa-house"></i>
+       <span>Home</span>
     </router-link>
 
     <router-link to="/menu" class="nav-item">
@@ -13,21 +14,22 @@
     </router-link>
 
     <router-link to="/perfil" class="nav-item">
-    <i class="fa-solid fa-user"></i>
-        <span>Perfil</span>
+       <i class="fa-solid fa-user"></i>
+       <span>Perfil</span>
     </router-link>
 
     <router-link to="/carrinho" class="nav-item">
-    <i class="fa-solid fa-cart-shopping"></i>
-        <span>Carrinho</span>
+       <i class="fa-solid fa-cart-shopping"></i>
+       <span>Carrinho</span>
     </router-link>
 
-    <router-link to="/mapa" class="nav-item">
-    <i class="fa-solid fa-location-dot"></i>
-        <span>Mapa</span>
+    <router-link to="/encomenda" class="nav-item">
+       <i class="fa-solid fa-calendar-check"></i>
+       <span>Encomenda</span>
     </router-link>
   </nav>
 </template>
+
 <style>
 .bottom-nav {
   position: fixed;
@@ -56,26 +58,25 @@
   width: 100%;
   padding: 10px 0;
 }
+
 .nav-item i {
   font-size: 22px;
   margin-bottom: 4px;
   color: #5E3023;
-  transition: transform 0.2s ease, color 0.2 ease;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
+
 .router-link-active {
   color: #d0bd97;
   font-weight: 600;
 }
-.router-link-active i{
+
+.router-link-active i {
   color: #d0bd97;
   transform: translateY(-2px);
 }
 
 .nav-item:active {
   background-color: rgba(187, 162, 112, 0.1);
-}
-
-.router-link-active {
-  background-color: transparent ;
 }
 </style>
