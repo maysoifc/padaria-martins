@@ -2,6 +2,9 @@
 </script>
 <template>
   <header class="banner">
+   <RouterLink to="/carrinho" class="carrinho-icon">
+      <i class="fa-solid fa-cart-shopping"></i>
+    </RouterLink>
   <div class="banner-overlay">
     <div class="banner-content">
       <div class="banner-logo">
@@ -16,16 +19,36 @@
   </div>
   </header>
 </template>
+
 <style scoped>
 .banner {
   width: 100%;
-  height:  220px;
+  height: 220px;
   background-image: url('/img/banner/banner.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   position: relative;
 }
+
+.carrinho-icon {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  color: white;
+  font-size: 1.5rem;
+  z-index: 10;
+  text-decoration: none;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 20%;
+  transition: background 0.3s ease;
+}
+
+.carrinho-icon:active {
+  background: rgba(0, 0, 0, 0.4);
+}
+
 .banner-overlay {
   position: absolute;
   inset: 0;
@@ -44,10 +67,10 @@
 }
 
 .banner-logo {
- width: 80px;
- height: 80px;
- object-fit: contain;
- filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .banner-texts {
@@ -71,11 +94,11 @@
   opacity: 0.9;
 }
 
+
 @media (max-width: 360px) {
   .banner-titulo {
     font-size: 1.8rem;
   }
-
   .banner-logo {
     width: 65px;
   }
