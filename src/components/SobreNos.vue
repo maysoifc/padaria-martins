@@ -16,11 +16,16 @@
     </div>
   </div>
   <div class="whatsapp-section">
-  <a href="https://www.whatsapp.com/" target="_blank" class="whatsapp-btn">
-  <i class="fa-brands fa-whatsapp"></i>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=IFC+Araquari" target="_blank" class="mapa-btn">
+        <i class="fa-solid fa-location-dot"></i>
+        Como chegar
+      </a>
+
+      <a href="https://www.whatsapp.com/" target="_blank" class="whatsapp-btn">
+        <i class="fa-brands fa-whatsapp"></i>
         WhatsApp Comercial
-  </a>
-  </div>
+      </a>
+    </div>
   </section>
 </template>
 <style scoped>
@@ -80,18 +85,16 @@
   border-left: 4px solid #B89764;
   padding: 8px 0 8px 16px;
 }
-
 .whatsapp-section {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 12px;
   margin-top: 30px;
   padding-bottom: 70px;
 }
 
-.whatsapp-btn {
-  background-color: #25d366;
-  color: white;
+.whatsapp-btn, .mapa-btn {
   text-decoration: none;
   padding: 12px 25px;
   border-radius: 30px;
@@ -104,10 +107,21 @@
   margin-bottom: 20px;
 }
 
-.whatsapp-btn:active{
+.whatsapp-btn {
+  background-color: #25d366;
+  color: white;
+}
+
+.mapa-btn {
+  background-color: #4285f4;
+  color: white;
+}
+
+.whatsapp-btn:active, .mapa-btn:active {
   transform: scale(0.95);
 }
-.whatsapp-btn i{
+
+.whatsapp-btn i, .mapa-btn i {
   font-size: 1.5rem;
 }
 </style>
