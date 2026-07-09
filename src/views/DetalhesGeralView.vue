@@ -52,6 +52,7 @@ const voltar = () => router.push('/perfil');
     </div>
   </div>
 </template>
+
 <style scoped>
 .geral-view {
   padding: 2rem 1.5rem;
