@@ -1,25 +1,30 @@
 <script setup>
 const promocoes = [
-  { id: 1, titulo: 'Promoção de bebidas', dia: 'Todas as  Segundas-feiras', imagem: 'img/bebidas.jpg'},
-  { id: 2, titulo: 'Promoção de pães', dia: 'Todas as Quartas-feiras', imagem: '/img/paes.jpg'},
-  { id: 3, titulo: 'Promoção de doces', dia: 'Todas as Quintas-feiras', imagem: 'img/doces.jpg'},
-  { id: 4, titulo: 'Promoção de salgados', dia: 'Todas os Sábados', imagem: '/img/assados.jpg' }
-
+  { id: 1, titulo: 'Promoção de bebidas', dia: 'Todas as Segundas', imagem: '/img/bebidas.jpg', categoria: 'Bebidas' },
+  { id: 2, titulo: 'Promoção de pães', dia: 'Todas as Quartas', imagem: '/img/paes.jpg', categoria: 'Pães' },
+  { id: 3, titulo: 'Promoção de doces', dia: 'Todas as Quintas', imagem: '/img/doces.jpg', categoria: 'Doces' },
+  { id: 4, titulo: 'Promoção de salgados', dia: 'Todos os Sábados', imagem: '/img/assados.jpg', categoria: 'Salgados' }
 ];
 </script>
+
 <template>
   <section class="promocoes-bloco">
-  <h2 class="titulo-sessao">Promoções da semana</h2>
+    <h2 class="titulo-sessao">Promoções da semana</h2>
 
-  <div class="grade-promocoes">
-  <div class="promo-card" v-for="promo in promocoes" :key="promo.id">
-  <img :src="promo.imagem" :alt="promo.titulo" class="promo-img">
-  <div class="promo-info">
-  <h4>{{  promo.titulo }}</h4>
-  <span class="dia-promo">{{ promo.dia }}</span>
-  </div>
-  </div>
-  </div>
+    <div class="grade-promocoes">
+      <RouterLink
+        v-for="promo in promocoes"
+        :key="promo.id"
+        :to="{ path: '/menu', query: { categoria: promo.categoria } }"
+        class="promo-card"
+      >
+        <img :src="promo.imagem" :alt="promo.titulo" class="promo-img">
+        <div class="promo-info">
+          <h4>{{ promo.titulo }}</h4>
+          <span class="dia-promo">{{ promo.dia }}</span>
+        </div>
+      </RouterLink>
+    </div>
   </section>
 </template>
 <style scoped>
@@ -54,6 +59,7 @@ const promocoes = [
   overflow: hidden;
   border: 1px solid #eee;
   transition: transform 0.1s ease;
+  text-decoration: none;
 }
 
 .promo-card:active {
