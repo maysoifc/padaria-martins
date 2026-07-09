@@ -142,3 +142,63 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.profile-view {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  width: 100%;
+}
+
+.avatar-usuario {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.avatar-usuario img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay-editar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  text-align: center;
+  padding: 6px 0;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.avatar-usuario:hover .overlay-editar {
+  opacity: 1;
+}
+
+.info-usuario {
+  text-align: center;
+  margin-top: 15px;
+  width: 100%;
+  word-break: break-word;
+}
+
+.info-usuario h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.info-usuario p {
+  margin-top: 5px;
+  color: #666;
+}
+</style>
