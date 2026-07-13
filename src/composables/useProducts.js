@@ -11,7 +11,9 @@ export function useProducts() {
       const catParam = categoria === 'Todos os produtos' ? '' : categoria;
 
       // Monta a URL com os dois filtros
-      const url = `http://127.0.0.1:8000/api/produtos/?categoria=${encodeURIComponent(catParam)}&busca=${encodeURIComponent(busca)}`;
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+
+      const url = `${baseUrl}/produtos/?categoria=${encodeURIComponent(catParam)}&busca=${encodeURIComponent(busca)}`;
 
       const response = await fetch(url);
       if (!response.ok) throw new Error('Erro ao conectar com a API');
