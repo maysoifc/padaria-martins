@@ -1,14 +1,14 @@
 <script setup>
-import { onMounted } from 'vue';
-import { useProducts } from '@/composables/useProducts';
-import ProductCard from '@/components/ProductCard.vue';
-import { Swiper, SwiperSlide } from 'swiper/vue';
-import { Pagination } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/pagination';
-import AppHeader from '@/components/AppHeader.vue';
-import Promocoes from '../components/Promocoes.vue';
-import SobreNos from '@/components/SobreNos.vue';
+import { onMounted } from "vue";
+import { useProducts } from "@/composables/useProducts";
+import ProductCard from "@/components/ProductCard.vue";
+import { Swiper, SwiperSlide } from "swiper/vue";
+import { Pagination } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/pagination";
+import AppHeader from "@/components/AppHeader.vue";
+import Promocoes from "../components/Promocoes.vue";
+import SobreNos from "@/components/SobreNos.vue";
 
 const { produtos, carregarProdutos } = useProducts();
 const modules = [Pagination];
@@ -34,20 +34,18 @@ onMounted(() => {
         <ProductCard :produto="item" />
       </swiper-slide>
     </swiper>
-
     <Promocoes />
     <SobreNos />
   </main>
 </template>
 <style scoped>
-
 .home-container {
   width: 100vw;
   min-height: 100vh;
 }
-.titulo-sessao{
-  color: #5E3023;
-  font-family: 'Imprima';
+.titulo-sessao {
+  color: #5e3023;
+  font-family: "Imprima";
   font-size: 1.6rem;
   font-weight: 800;
   line-height: 1.2;
@@ -58,18 +56,18 @@ onMounted(() => {
   text-align: center;
 }
 
-.meu-carrossel{
+.meu-carrossel {
   width: 100%;
   padding: 10px 16px 50px;
   box-sizing: border-box;
 }
-:deep(.swiper-pagination-bullet){
-  background-color: #8B5E3C;
+:deep(.swiper-pagination-bullet) {
+  background-color: #8b5e3c;
   opacity: 0.5;
 }
 
-:deep(.swiper-pagination-bullet-active){
-  background-color: #3D2B1F;
+:deep(.swiper-pagination-bullet-active) {
+  background-color: #3d2b1f;
   width: 10px;
   height: 10px;
 }
