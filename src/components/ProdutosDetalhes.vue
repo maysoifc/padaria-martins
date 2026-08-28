@@ -13,7 +13,8 @@ const acaoPendente = ref(null);
 
 const fetchProduto = async () => {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/api/produtos/${route.params.id}/`);
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+    const response = await fetch(`${baseUrl}/produtos/${route.params.id}/`);
     produto.value = await response.json();
   } catch (error) {
     console.error("Erro ao carregar detalhes:", error);
