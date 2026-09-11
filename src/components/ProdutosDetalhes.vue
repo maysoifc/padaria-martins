@@ -1,21 +1,34 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { useCartStore } from '@/composables/useCart';
+import { ref, onMounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useCartStore } from "@/composables/useCart";
 
 const route = useRoute();
 const router = useRouter();
-const produto = ref(null);
 const cartStore = useCartStore();
+
+const produto = ref(null);
 const mostrarModal = ref(false);
-const quantidadeDesejada = ref(1);
-const acaoPendente = ref(null);
+const quantidade = ref(1);
+const adicionando = ref(false);
+const favorito = ref(false);
 
 const fetchProduto = async () => {
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
-    const response = await fetch(`${baseUrl}/produtos/${route.params.id}/`);
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL ||
+      "http://127.0.0.1:8000/api";
+
+    const response = await fetch(
+      `${baseUrl}/produtos/${route.params.id}/`
+    );
+
+    if (!response.ok) {
+      throw new Error("Não foi possível carregar o produto.");
+    }
+
     produto.value = await response.json();
+    favorito.value = produto.value.favorito || false;
   } catch (error) {
     console.error("Erro ao carregar detalhes:", error);
   }
@@ -23,330 +36,1109 @@ const fetchProduto = async () => {
 
 const getImageUrl = (nomeImagem) => {
   try {
-    return new URL(`../assets/img/${nomeImagem}`, import.meta.url).href;
-  } catch (e) {
+    return new URL(
+      `../assets/img/${nomeImagem}`,
+      import.meta.url
+    ).href;
+  } catch {
     return "";
   }
 };
 
-const abrirModal = (acao) => {
-  acaoPendente.value = acao;
-  quantidadeDesejada.value = 1;
+const voltar = () => {
+  router.back();
+};
+
+const aumentarQuantidade = () => {
+  quantidade.value++;
+};
+
+const diminuirQuantidade = () => {
+  if (quantidade.value > 1) {
+    quantidade.value--;
+  }
+};
+
+const abrirModal = () => {
+  quantidade.value = 1;
   mostrarModal.value = true;
 };
 
-const confirmarAcao = () => {
-  if (produto.value && quantidadeDesejada.value > 0) {
-    for (let i = 0; i < quantidadeDesejada.value; i++) {
+const fecharModal = () => {
+  if (!adicionando.value) {
+    mostrarModal.value = false;
+  }
+};
+
+const adicionarAoCarrinho = async () => {
+  if (!produto.value || adicionando.value) return;
+
+  adicionando.value = true;
+
+  try {
+    for (let i = 0; i < quantidade.value; i++) {
       cartStore.adicionarItem(produto.value);
     }
 
-    if (acaoPendente.value === 'carrinho') {
-      alert(`${quantidadeDesejada.value}x ${produto.value.nome} adicionado(s) ao carrinho!`);
-    } else if (acaoPendente.value === 'comprar') {
-      router.push('/carrinho');
-    }
+    mostrarModal.value = false;
+  } finally {
+    adicionando.value = false;
   }
-  mostrarModal.value = false;
+};
+
+const comprarAgora = async () => {
+  await adicionarAoCarrinho();
+
+  router.push("/carrinho");
+};
+
+const alternarFavorito = async () => {
+  if (!produto.value) return;
+
+  const novoStatus = !favorito.value;
+
+  try {
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL ||
+      "http://127.0.0.1:8000/api";
+
+    const response = await fetch(
+      `${baseUrl}/produtos/${produto.value.idProduto}/favorito/`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          favorito: novoStatus,
+        }),
+      }
+    );
+
+    if (response.ok) {
+      favorito.value = novoStatus;
+      produto.value.favorito = novoStatus;
+    }
+  } catch (error) {
+    console.error("Erro ao atualizar favorito:", error);
+  }
 };
 
 onMounted(fetchProduto);
 </script>
 
 <template>
-  <div v-if="produto" class="detalhes-container">
-    <button @click="$router.back()" class="btn-voltar">Voltar</button>
+  <div
+    v-if="produto"
+    class="pagina-detalhes"
+  >
 
-    <main class="produto-card">
-      <div class="img-wrapper">
-        <img :src="getImageUrl(produto.imagem)" :alt="produto.nome">
-      </div>
+    <main class="produto">
 
-      <div class="conteudo">
-        <div class="header-meta">
-          <h1>{{ produto.nome }}</h1>
-          <div class="avaliacao">
-            <span v-for="n in 5" :key="n" :class="{ 'ativa': n <= Math.round(produto.avaliacao) }">★</span>
-          </div>
+      <section class="hero">
+
+        <img
+          class="imagem-produto"
+          :src="getImageUrl(produto.imagem)"
+          :alt="produto.nome"
+        />
+
+        <div class="hero-overlay"></div>
+
+        <button
+          class="botao-voltar"
+          type="button"
+          @click="voltar"
+          aria-label="Voltar"
+        >
+          <i class="fas fa-arrow-left"></i>
+        </button>
+
+        <button
+          class="botao-favorito"
+          type="button"
+          @click="alternarFavorito"
+          aria-label="Favoritar produto"
+        >
+          <i
+            :class="
+              favorito
+                ? 'fas fa-heart'
+                : 'far fa-heart'
+            "
+          ></i>
+        </button>
+
+        <div class="avaliacao-hero">
+          <i class="fas fa-star"></i>
+          <span>
+            {{ Number(produto.avaliacao || 0).toFixed(1) }}
+          </span>
         </div>
 
-        <p class="preco">R$ {{ parseFloat(produto.preco).toFixed(2).replace('.', ',') }}</p>
+      </section>
 
-        <div class="detalhes-grid">
-          <div class="info-bloco">
-            <h3>Base</h3>
-            <p>{{ produto.ingredientes_base || 'Ingredientes não informados' }}</p>
+      <section class="conteudo">
+
+        <div class="cabecalho-produto">
+
+          <div>
+            <span class="categoria">
+              Produto artesanal
+            </span>
+
+            <h1>
+              {{ produto.nome }}
+            </h1>
           </div>
-          <div class="info-bloco">
-            <h3>Cobertura</h3>
-            <p>{{ produto.ingredientes_creme || 'Sem cobertura' }}</p>
+
+          <div class="preco">
+            <small>R$</small>
+            {{ parseFloat(produto.preco).toFixed(2).replace(".", ",") }}
           </div>
+
         </div>
-      </div>
+
+        <div class="divisor"></div>
+
+        <section class="secao">
+
+          <div class="titulo-secao">
+            <span class="linha-titulo"></span>
+            <h2>Ingredientes</h2>
+          </div>
+
+          <div class="ingredientes">
+
+            <article class="ingrediente-card">
+
+              <div class="ingrediente-icone">
+                <i class="fas fa-bread-slice"></i>
+              </div>
+
+              <div class="ingrediente-texto">
+
+                <span>Base</span>
+
+                <p>
+                  {{
+                    produto.ingredientes_base ||
+                    "Ingredientes não informados"
+                  }}
+                </p>
+
+              </div>
+
+            </article>
+
+            <article class="ingrediente-card">
+
+              <div class="ingrediente-icone">
+                <i class="fas fa-cookie-bite"></i>
+              </div>
+
+              <div class="ingrediente-texto">
+
+                <span>Cobertura</span>
+
+                <p>
+                  {{
+                    produto.ingredientes_creme ||
+                    "Sem cobertura"
+                  }}
+                </p>
+
+              </div>
+
+            </article>
+
+          </div>
+
+        </section>
+
+        <section class="mensagem">
+
+          <div class="mensagem-icone">
+            <i class="fas fa-heart"></i>
+          </div>
+
+          <div>
+            <strong>Feito com carinho</strong>
+
+            <p>
+              Preparado com ingredientes selecionados
+              para deixar seu momento ainda mais especial.
+            </p>
+          </div>
+
+        </section>
+
+      </section>
+
     </main>
 
-    <div class="rodape-acoes">
-      <button class="btn-acao btn-carrinho" @click="abrirModal('carrinho')">
-        Adicionar ao Carrinho
-      </button>
-      <button class="btn-acao btn-comprar" @click="abrirModal('comprar')">
-        Comprar Agora
-      </button>
-    </div>
+    <footer class="barra-compra">
 
-    <div v-if="mostrarModal" class="modal-overlay" @click.self="mostrarModal = false">
-      <div class="modal-conteudo">
-        <h3>Selecione a quantidade</h3>
+      <div class="resumo-compra">
 
-        <div class="controle-quantidade">
-          <button @click="quantidadeDesejada > 1 ? quantidadeDesejada-- : null">-</button>
-          <span>{{ quantidadeDesejada }}</span>
-          <button @click="quantidadeDesejada++">+</button>
-        </div>
+        <span>Total</span>
 
-        <div class="modal-botoes">
-          <button class="btn-modal btn-cancelar" @click="mostrarModal = false">Cancelar</button>
-          <button class="btn-modal btn-confirmar" @click="confirmarAcao">Confirmar</button>
-        </div>
+        <strong>
+          R$
+          {{
+            (
+              parseFloat(produto.preco) *
+              quantidade
+            )
+              .toFixed(2)
+              .replace(".", ",")
+          }}
+        </strong>
+
       </div>
-    </div>
+
+      <button
+        class="botao-adicionar"
+        type="button"
+        @click="abrirModal"
+      >
+        <i class="fas fa-shopping-bag"></i>
+        <span>Adicionar ao carrinho</span>
+      </button>
+
+    </footer>
+
+    <Transition name="modal">
+
+      <div
+        v-if="mostrarModal"
+        class="modal-overlay"
+        @click.self="fecharModal"
+      >
+
+        <div class="modal">
+
+          <button
+            class="modal-fechar"
+            type="button"
+            @click="fecharModal"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+
+          <div class="modal-icone">
+            <i class="fas fa-shopping-bag"></i>
+          </div>
+
+          <span class="modal-label">
+            ADICIONAR AO PEDIDO
+          </span>
+
+          <h2>
+            {{ produto.nome }}
+          </h2>
+
+          <p class="modal-preco">
+            R$ {{ parseFloat(produto.preco).toFixed(2).replace(".", ",") }}
+          </p>
+
+          <div class="quantidade-box">
+
+            <button
+              type="button"
+              @click="diminuirQuantidade"
+              :disabled="quantidade <= 1"
+            >
+              −
+            </button>
+
+            <strong>
+              {{ quantidade }}
+            </strong>
+
+            <button
+              type="button"
+              @click="aumentarQuantidade"
+            >
+              +
+            </button>
+
+          </div>
+
+          <div class="modal-total">
+
+            <span>Total</span>
+
+            <strong>
+              R$
+              {{
+                (
+                  parseFloat(produto.preco) *
+                  quantidade
+                )
+                  .toFixed(2)
+                  .replace(".", ",")
+              }}
+            </strong>
+
+          </div>
+
+          <button
+            class="modal-adicionar"
+            type="button"
+            :disabled="adicionando"
+            @click="adicionarAoCarrinho"
+          >
+            <i class="fas fa-shopping-cart"></i>
+
+            {{
+              adicionando
+                ? "Adicionando..."
+                : "Adicionar ao carrinho"
+            }}
+          </button>
+
+          <button
+            class="modal-comprar"
+            type="button"
+            :disabled="adicionando"
+            @click="comprarAgora"
+          >
+            Comprar agora
+          </button>
+
+        </div>
+
+      </div>
+
+    </Transition>
+
   </div>
 </template>
+
 <style scoped>
-.detalhes-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 1.5rem 1.5rem 5rem 1.5rem;
-  position: relative;
-  box-sizing: border-box;
+.pagina-detalhes {
+  min-height: 100vh;
+  padding-bottom: 105px;
+  background: #f8f5f0;
 }
 
-.produto-card {
-  background: white;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.05);
-}
-
-.img-wrapper {
-  height: 250px;
+.produto {
   width: 100%;
+  max-width: 650px;
+  margin: 0 auto;
+  background: #ffffff;
 }
 
-.img-wrapper img {
+.hero {
+  position: relative;
+  height: 330px;
+  overflow: hidden;
+  background: #eee5d8;
+}
+
+.imagem-produto {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: cover;
 }
 
-.conteudo { padding: 1.5rem; }
-
-.header-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.8rem;
-}
-
-h1 { font-size: 1.5rem; margin: 0; color: #1a1a1a; letter-spacing: -0.5px; }
-
-.preco {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: #bba270;
-  margin-bottom: 1.5rem;
-}
-
-.detalhes-grid { display: grid; gap: 1rem; }
-
-.info-bloco h3 {
-  font-size: 0.6rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #999;
-  margin-bottom: 0.2rem;
-}
-
-.info-bloco p {
-  color: #333;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-.avaliacao span {
-  color: #ccc;
-  font-size: 1rem;
-}
-
-.avaliacao span.ativa {
-  color: #bba270;
-}
-
-.rodape-acoes {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #ffffff;
-  padding: 0.6rem 1rem;
-  display: flex;
-  gap: 0.6rem;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
-  z-index: 100;
-  box-sizing: border-box;
-  justify-content: center;
-}
-
-.btn-acao {
-  flex: 1;
-  max-width: 200px;
-  padding: 0.8rem;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  border: none;
-  transition: transform 0.1s, opacity 0.2s;
-}
-
-.btn-acao:active {
-  transform: scale(0.96);
-}
-
-.btn-carrinho {
-  background: #f4eee1;
-  color: #bba270;
-}
-
-.btn-carrinho:hover {
-  opacity: 0.9;
-}
-
-.btn-comprar {
-  background: #1a1a1a;
-  color: #ffffff;
-}
-
-.btn-comprar:hover {
-  background: #bba270;
-}
-
-.btn-voltar {
+.hero-overlay {
   position: absolute;
-  top: 1.5rem;
-  left: 1.5rem;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 0.4rem 0.8rem;
-  border-radius: 50px;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(40, 25, 20, 0.28),
+    transparent 35%,
+    rgba(40, 25, 20, 0.18)
+  );
+  pointer-events: none;
+}
+
+.botao-voltar,
+.botao-favorito {
+  position: absolute;
+  top: 18px;
+
+  width: 42px;
+  height: 42px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.94);
+  color: #5e3023;
+
   cursor: pointer;
-  font-weight: 600;
-  color: #333;
+
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.14);
+
+  backdrop-filter: blur(8px);
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+.botao-voltar {
+  left: 18px;
+}
+
+.botao-favorito {
+  right: 18px;
+}
+
+.botao-voltar:hover,
+.botao-favorito:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+}
+
+.botao-favorito .fas {
+  color: #a86d62;
+  animation: coracao 0.2s ease;
+}
+
+@keyframes coracao {
+  0% {
+    transform: scale(0.7);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.avaliacao-hero {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  padding: 8px 12px;
+
+  border-radius: 12px;
+
+  background: rgba(255, 255, 255, 0.95);
+
+  color: #5e3023;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
 }
 
-.btn-voltar:hover {
-  background: white;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+.avaliacao-hero i {
+  color: #bba270;
+}
+
+.conteudo {
+  padding: 26px 22px 25px;
+}
+
+.cabecalho-produto {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.categoria {
+  display: block;
+  margin-bottom: 7px;
+
+  color: #bba270;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.cabecalho-produto h1 {
+  margin: 0;
+
+  color: #5e3023;
+
+  font-family:
+    "Times New Roman",
+    Georgia,
+    serif;
+
+  font-size: 29px;
+  line-height: 1.08;
+}
+
+.preco {
+  flex-shrink: 0;
+
+  color: #bba270;
+
+  font-size: 23px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.preco small {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.divisor {
+  height: 1px;
+  margin: 22px 0;
+
+  background: #eee5da;
+}
+
+.secao {
+  margin-top: 5px;
+}
+
+.titulo-secao {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  margin-bottom: 13px;
+}
+
+.linha-titulo {
+  width: 4px;
+  height: 18px;
+
+  border-radius: 10px;
+
+  background: #bba270;
+}
+
+.titulo-secao h2 {
+  margin: 0;
+
+  color: #5e3023;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ingredientes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ingrediente-card {
+  min-width: 0;
+
+  padding: 13px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  background: #faf7f2;
+
+  border: 1px solid #eee5da;
+  border-radius: 15px;
+
+  box-sizing: border-box;
+}
+
+.ingrediente-icone {
+  width: 34px;
+  height: 34px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  background: #f0e5d2;
+
+  color: #6a3828;
+
+  font-size: 13px;
+}
+
+.ingrediente-texto {
+  min-width: 0;
+}
+
+.ingrediente-texto span {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #9a8b7d;
+
+  font-size: 9px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.ingrediente-texto p {
+  margin: 0;
+
+  color: #5e3023;
+
+  font-size: 12px;
+  line-height: 1.35;
+
+  overflow-wrap: anywhere;
+}
+
+.mensagem {
+  margin-top: 20px;
+
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+
+  padding: 14px;
+
+  border-radius: 15px;
+
+  background: #f8f0e3;
+  border: 1px solid #eadbc4;
+}
+
+.mensagem-icone {
+  width: 32px;
+  height: 32px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  color: #bba270;
+
+  font-size: 12px;
+}
+
+.mensagem strong {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: #5e3023;
+
+  font-size: 12px;
+}
+
+.mensagem p {
+  margin: 0;
+
+  color: #806f62;
+
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.barra-compra {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+
+  padding: 12px max(18px, calc((100vw - 650px) / 2));
+
+  background: rgba(255, 255, 255, 0.96);
+
+  border-top: 1px solid #eadfd2;
+
+  box-shadow: 0 -5px 20px rgba(94, 48, 35, 0.08);
+
+  backdrop-filter: blur(12px);
+
+  box-sizing: border-box;
+}
+
+.resumo-compra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.resumo-compra span {
+  color: #9a8b7d;
+
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.resumo-compra strong {
+  color: #5e3023;
+
+  font-size: 18px;
+}
+
+.botao-adicionar {
+  flex: 1;
+
+  max-width: 360px;
+
+  min-height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  border: none;
+  border-radius: 14px;
+
+  background: #5e3023;
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  box-shadow: 0 5px 14px rgba(94, 48, 35, 0.2);
+
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease;
+}
+
+.botao-adicionar:hover {
+  background: #4d281f;
+}
+
+.botao-adicionar:active {
+  transform: scale(0.97);
 }
 
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  inset: 0;
+
   z-index: 1000;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  padding: 0;
+
+  background: rgba(43, 27, 22, 0.48);
+
+  backdrop-filter: blur(5px);
 }
 
-.modal-conteudo {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 300px;
+.modal {
+  position: relative;
+
+  width: 100%;
+  max-width: 480px;
+
+  padding: 28px 22px 25px;
+
+  background: #ffffff;
+
+  border-radius: 26px 26px 0 0;
+
   text-align: center;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+
+  box-sizing: border-box;
 }
 
-.modal-conteudo h3 {
-  margin-top: 0;
-  color: #1a1a1a;
-  font-size: 1.1rem;
-}
+.modal-fechar {
+  position: absolute;
+  top: 15px;
+  right: 15px;
 
-.controle-quantidade {
+  width: 34px;
+  height: 34px;
+
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 20px;
-  margin: 20px 0;
-}
+  justify-content: center;
 
-.controle-quantidade button {
-  background: #f4eee1;
   border: none;
-  width: 40px;
-  height: 40px;
   border-radius: 50%;
-  font-size: 1.2rem;
-  font-weight: bold;
+
+  background: #f5eee3;
+  color: #6a3828;
+
   cursor: pointer;
-  color: #bba270;
+}
+
+.modal-icone {
+  width: 48px;
+  height: 48px;
+
+  margin: 0 auto 10px;
+
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+
+  border-radius: 14px;
+
+  background: #f5eee3;
+
+  color: #6a3828;
+
+  font-size: 17px;
 }
 
-.controle-quantidade button:hover {
-  background: #e4d7be;
+.modal-label {
+  color: #bba270;
+
+  font-size: 9px;
+  font-weight: 800;
+
+  letter-spacing: 1.4px;
 }
 
-.controle-quantidade span {
-  font-size: 1.3rem;
-  font-weight: bold;
-  min-width: 20px;
-  color: #1a1a1a;
+.modal h2 {
+  margin: 6px 35px 3px;
+
+  color: #5e3023;
+
+  font-family:
+    "Times New Roman",
+    Georgia,
+    serif;
+
+  font-size: 22px;
 }
 
-.modal-botoes {
+.modal-preco {
+  margin: 0;
+
+  color: #9a8b7d;
+
+  font-size: 13px;
+}
+
+.quantidade-box {
+  margin: 20px auto;
+
+  width: fit-content;
+
   display: flex;
-  gap: 10px;
-  margin-top: 20px;
+  align-items: center;
+  gap: 18px;
+
+  padding: 5px;
+
+  border: 1px solid #eadfd2;
+  border-radius: 50px;
+
+  background: #faf7f2;
 }
 
-.btn-modal {
-  flex: 1;
-  padding: 0.8rem;
-  border-radius: 12px;
+.quantidade-box button {
+  width: 38px;
+  height: 38px;
+
   border: none;
-  font-weight: 600;
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  color: #5e3023;
+
+  font-size: 20px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+.quantidade-box button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.quantidade-box strong {
+  min-width: 22px;
+
+  color: #5e3023;
+
+  font-size: 19px;
+}
+
+.modal-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 12px;
+  padding: 13px 15px;
+
+  border-radius: 12px;
+
+  background: #faf7f2;
+}
+
+.modal-total span {
+  color: #806f62;
+
+  font-size: 12px;
+}
+
+.modal-total strong {
+  color: #5e3023;
+
+  font-size: 17px;
+}
+
+.modal-adicionar,
+.modal-comprar {
+  width: 100%;
+
+  min-height: 46px;
+
+  border: none;
+  border-radius: 13px;
+
+  font-size: 13px;
+  font-weight: 700;
+
   cursor: pointer;
 }
 
-.btn-cancelar {
-  background: #eee;
-  color: #666;
+.modal-adicionar {
+  background: #5e3023;
+  color: #ffffff;
 }
 
-.btn-confirmar {
-  background: #bba270;
-  color: white;
+.modal-comprar {
+  margin-top: 8px;
+
+  background: #f5eee3;
+  color: #6a3828;
 }
 
-.btn-confirmar:hover {
-  background: #a18752;
+.modal-adicionar:disabled,
+.modal-comprar:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.modal-enter-active .modal,
+.modal-leave-active .modal {
+  transition: transform 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal,
+.modal-leave-to .modal {
+  transform: translateY(100%);
+}
+
+@media (min-width: 651px) {
+  .pagina-detalhes {
+    padding: 35px 20px 120px;
+  }
+
+  .produto {
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 15px 45px rgba(94, 48, 35, 0.1);
+  }
+
+  .hero {
+    height: 390px;
+  }
+
+  .conteudo {
+    padding: 32px;
+  }
+
+  .barra-compra {
+    padding-left: calc((100vw - 650px) / 2);
+    padding-right: calc((100vw - 650px) / 2);
+  }
+
+  .modal-overlay {
+    align-items: center;
+    padding: 20px;
+  }
+
+  .modal {
+    border-radius: 26px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    height: 285px;
+  }
+
+  .conteudo {
+    padding: 22px 16px;
+  }
+
+  .cabecalho-produto h1 {
+    font-size: 25px;
+  }
+
+  .preco {
+    font-size: 20px;
+  }
+
+  .ingredientes {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-compra {
+    gap: 12px;
+    padding: 10px 14px;
+  }
+
+  .resumo-compra strong {
+    font-size: 16px;
+  }
+
+  .botao-adicionar {
+    min-height: 46px;
+    font-size: 12px;
+  }
 }
 </style>
