@@ -4,132 +4,887 @@ import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
 const route = useRoute();
+
 const grupo = computed(() => route.params.grupo);
 const tipoAtual = computed(() => route.params.tipo);
 
 const configuracoes = {
   pedidos: {
     titulo: 'Meus Pedidos',
+    subtitulo: 'Tudo o que você já viveu com a gente.',
     abas: [
-      { id: 'favoritos', nome: 'Favoritos', icone: 'fa-heart' },
-      { id: 'avaliados', nome: 'Avaliados', icone: 'fa-star' },
-      { id: 'preparados', nome: 'Preparados', icone: 'fa-utensils' }
+      {
+        id: 'favoritos',
+        nome: 'Favoritos',
+        descricao: 'Seus queridinhos',
+        icone: 'fa-heart'
+      },
+      {
+        id: 'avaliados',
+        nome: 'Avaliados',
+        descricao: 'Suas avaliações',
+        icone: 'fa-star'
+      },
+      {
+        id: 'preparados',
+        nome: 'Preparados',
+        descricao: 'Pedidos realizados',
+        icone: 'fa-utensils'
+      }
     ]
   },
+
   carteira: {
     titulo: 'Minha Carteira',
+    subtitulo: 'Vantagens especiais para você.',
     abas: [
-      { id: 'cupons', nome: 'Cupons', icone: 'fa-ticket-alt' },
-      { id: 'selos', nome: 'Selos', icone: 'fa-certificate' },
-      { id: 'cartoes', nome: 'Cartões', icone: 'fa-credit-card' }
+      {
+        id: 'cupons',
+        nome: 'Cupons',
+        descricao: 'Descontos disponíveis',
+        icone: 'fa-ticket'
+      },
+      {
+        id: 'selos',
+        nome: 'Selos',
+        descricao: 'Sua coleção',
+        icone: 'fa-certificate'
+      },
+      {
+        id: 'cartoes',
+        nome: 'Cartões',
+        descricao: 'Formas de pagamento',
+        icone: 'fa-credit-card'
+      }
     ]
   }
 };
 
-const dadosAtuais = computed(() => configuracoes[grupo.value] || configuracoes.pedidos);
-const mudarAba = (id) => router.push(`/detalhes/${grupo.value}/${id}`);
-const voltar = () => router.push('/perfil');
+const dadosAtuais = computed(() => {
+  return configuracoes[grupo.value] || configuracoes.pedidos;
+});
+
+const abaAtual = computed(() => {
+  return (
+    dadosAtuais.value.abas.find(
+      aba => aba.id === tipoAtual.value
+    ) || dadosAtuais.value.abas[0]
+  );
+});
+
+const mudarAba = (id) => {
+  router.push(`/detalhes/${grupo.value}/${id}`);
+};
+
+const voltar = () => {
+  router.push('/perfil');
+};
 </script>
 
 <template>
-  <div class="geral-view">
-    <button @click="voltar" class="btn-voltar">← Voltar</button>
-    <h1>{{ dadosAtuais.titulo }}</h1>
+  <div class="geral-page">
 
-    <div class="abas-container">
-      <div v-for="aba in dadosAtuais.abas" :key="aba.id"
-           class="aba" :class="{ 'ativa': tipoAtual === aba.id }"
-           @click="mudarAba(aba.id)">
-        {{ aba.nome }}
-      </div>
-    </div>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
 
-    <div class="conteudo-lista">
-      <div class="placeholder">
-        <i class="fas" :class="dadosAtuais.abas.find(a => a.id === tipoAtual)?.icone"></i>
-        <p> <strong>{{ tipoAtual }}</strong></p>
-      </div>
-    </div>
+    <main class="geral-container">
+
+      <header class="page-header">
+
+        <button
+          type="button"
+          class="btn-voltar"
+          @click="voltar"
+        >
+          <span class="voltar-icon">
+            <i class="fa-solid fa-arrow-left"></i>
+          </span>
+
+          <span>Meu perfil</span>
+        </button>
+
+        <div class="header-copy">
+
+          <span class="eyebrow">
+            {{ grupo === 'carteira' ? 'MINHA CARTEIRA' : 'MINHA CONTA' }}
+          </span>
+
+          <h1>
+            {{ dadosAtuais.titulo }}
+          </h1>
+
+          <p>
+            {{ dadosAtuais.subtitulo }}
+          </p>
+
+        </div>
+
+        <div class="header-decoration">
+          <span></span>
+          <i :class="`fa-solid ${abaAtual.icone}`"></i>
+        </div>
+
+      </header>
+
+      <section class="abas-section">
+
+        <div class="section-heading">
+          <div>
+            <span>EXPLORE</span>
+            <h2>Escolha uma categoria</h2>
+          </div>
+
+          <div class="contador">
+            <strong>{{ dadosAtuais.abas.length }}</strong>
+            <span>opções</span>
+          </div>
+        </div>
+
+        <div class="abas-container">
+
+          <button
+            v-for="aba in dadosAtuais.abas"
+            :key="aba.id"
+            type="button"
+            class="aba"
+            :class="{ ativa: tipoAtual === aba.id }"
+            @click="mudarAba(aba.id)"
+          >
+
+            <span class="aba-icone">
+              <i :class="`fa-solid ${aba.icone}`"></i>
+            </span>
+
+            <span class="aba-texto">
+              <strong>{{ aba.nome }}</strong>
+              <small>{{ aba.descricao }}</small>
+            </span>
+
+            <span class="aba-seta">
+              <i class="fa-solid fa-arrow-right"></i>
+            </span>
+
+          </button>
+
+        </div>
+
+      </section>
+
+      <section class="conteudo-card">
+
+        <div class="conteudo-topo">
+
+          <div class="conteudo-identidade">
+
+            <div class="icone-conteudo">
+              <i :class="`fa-solid ${abaAtual.icone}`"></i>
+            </div>
+
+            <div>
+              <span>SEÇÃO ATUAL</span>
+              <h2>{{ abaAtual.nome }}</h2>
+            </div>
+
+          </div>
+
+          <span class="status-pill">
+            <i class="fa-solid fa-circle"></i>
+            Em breve
+          </span>
+
+        </div>
+
+        <div class="placeholder">
+
+          <div class="placeholder-ilustracao">
+
+            <div class="placeholder-circulo">
+              <i :class="`fa-solid ${abaAtual.icone}`"></i>
+            </div>
+
+            <span class="decor decor-one"></span>
+            <span class="decor decor-two"></span>
+            <span class="decor decor-three"></span>
+
+          </div>
+
+          <span class="placeholder-label">
+            {{ abaAtual.nome.toUpperCase() }}
+          </span>
+
+          <h3>
+            Estamos preparando<br />
+            algo especial.
+          </h3>
+
+          <p>
+            Esta área ainda está sendo preparada.
+            Em breve você poderá acompanhar tudo por aqui.
+          </p>
+
+          <button
+            type="button"
+            class="btn-voltar-perfil"
+            @click="voltar"
+          >
+            <span>Voltar ao meu perfil</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+
+        </div>
+
+      </section>
+
+      <footer class="page-footer">
+        <span class="linha"></span>
+
+        <div>
+          <i class="fa-solid fa-heart"></i>
+          Feito com carinho
+        </div>
+
+        <span class="linha"></span>
+      </footer>
+
+    </main>
   </div>
 </template>
 
 <style scoped>
-.geral-view {
-  padding: 2rem 1.5rem;
-  max-width: 600px;
-  margin: 0 auto;
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+.geral-page {
+  position: relative;
   min-height: 100vh;
-  background-color: #fcfaf7;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 10% 15%,
+      rgba(190, 163, 112, 0.09),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 92% 80%,
+      rgba(103, 76, 53, 0.07),
+      transparent 25%
+    ),
+    #f8f4ed;
+  color: #38291f;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.geral-container {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: 28px 24px 42px;
+}
+
+.ambient {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(1px);
+}
+
+.ambient-one {
+  width: 260px;
+  height: 260px;
+  top: -130px;
+  right: -100px;
+  background: rgba(191, 162, 108, 0.13);
+}
+
+.ambient-two {
+  width: 220px;
+  height: 220px;
+  bottom: -100px;
+  left: -100px;
+  background: rgba(108, 77, 51, 0.08);
+}
+
+.page-header {
+  position: relative;
+  margin-bottom: 42px;
 }
 
 .btn-voltar {
-  background: rgba(0, 0, 0, 0.03);
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  margin-bottom: 32px;
+  border: 0;
+  background: transparent;
+  color: #72563e;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: 600;
-  margin-bottom: 2rem;
-  transition: 0.2s;
+  transition: 0.25s ease;
 }
 
-.btn-voltar:hover { background: rgba(0, 0, 0, 0.08); }
+.btn-voltar:hover {
+  color: #38291f;
+  transform: translateX(-3px);
+}
 
-h1 {
-  font-size: 1.8rem;
-  margin-bottom: 2rem;
-  color: #1a1a1a;
-  text-align: center;
-  font-weight: 700;
+.voltar-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid rgba(105, 76, 52, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 6px 18px rgba(63, 42, 27, 0.06);
+}
+
+.header-copy {
+  max-width: 650px;
+}
+
+.eyebrow,
+.section-heading > div > span,
+.conteudo-identidade span,
+.placeholder-label {
+  display: block;
+  color: #a48452;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.header-copy h1 {
+  margin: 8px 0 10px;
+  color: #3a281d;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.35rem, 7vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.header-copy p {
+  max-width: 470px;
+  margin: 0;
+  color: #8b796a;
+  font-size: 0.96rem;
+  line-height: 1.65;
+}
+
+.header-decoration {
+  position: absolute;
+  top: 76px;
+  right: 5%;
+  display: grid;
+  width: 94px;
+  height: 94px;
+  place-items: center;
+  border: 1px solid rgba(164, 132, 82, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  color: #b08d57;
+}
+
+.header-decoration span {
+  position: absolute;
+  inset: 9px;
+  border: 1px dashed rgba(164, 132, 82, 0.25);
+  border-radius: 50%;
+}
+
+.header-decoration i {
+  position: relative;
+  z-index: 1;
+  font-size: 1.45rem;
+}
+
+.abas-section {
+  margin-bottom: 26px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.section-heading h2 {
+  margin: 5px 0 0;
+  color: #4a3527;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.45rem;
+}
+
+.contador {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #9a897a;
+  font-size: 0.75rem;
+}
+
+.contador strong {
+  color: #76593f;
+  font-size: 1rem;
 }
 
 .abas-container {
-  display: flex;
-  justify-content: space-around;
-  background: white;
-  padding: 0.5rem;
-  border-radius: 20px;
-  margin-bottom: 2rem;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-  border: 1px solid rgba(0,0,0,0.02);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .aba {
-  padding: 12px 20px;
+  position: relative;
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  overflow: hidden;
+  border: 1px solid rgba(89, 63, 42, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #8f7b6a;
+  text-align: left;
+  font-family: inherit;
   cursor: pointer;
-  color: #a0a0a0;
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: 0.3s;
-  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(65, 45, 29, 0.035);
+  transition: 0.3s ease;
+}
+
+.aba:hover {
+  transform: translateY(-3px);
+  border-color: rgba(164, 132, 82, 0.25);
+  box-shadow: 0 14px 30px rgba(65, 45, 29, 0.08);
 }
 
 .aba.ativa {
-  color: #bba270;
-  background: #fdfbf7;
-  border-bottom: 2px solid #bba270;
+  border-color: rgba(164, 132, 82, 0.28);
+  background: #fffdf9;
+  color: #4b3526;
+  box-shadow: 0 14px 32px rgba(65, 45, 29, 0.09);
 }
 
-.conteudo-lista {
-  background: white;
-  border-radius: 24px;
-  padding: 2rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-  min-height: 300px;
+.aba.ativa::before {
+  position: absolute;
+  width: 55px;
+  height: 55px;
+  right: -18px;
+  bottom: -20px;
+  border-radius: 50%;
+  background: rgba(186, 151, 92, 0.1);
+  content: '';
+}
+
+.aba-icone {
+  display: grid;
+  flex: 0 0 43px;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border-radius: 14px;
+  background: #f4eee5;
+  color: #a38454;
+  transition: 0.3s ease;
+}
+
+.aba.ativa .aba-icone {
+  background: #eadfcf;
+  color: #765636;
+}
+
+.aba-icone i {
+  font-size: 0.95rem;
+}
+
+.aba-texto {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.aba-texto strong {
+  color: #4a3527;
+  font-size: 0.84rem;
+}
+
+.aba-texto small {
+  overflow: hidden;
+  color: #9d8c7c;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aba-seta {
+  display: grid;
+  margin-left: auto;
+  place-items: center;
+  color: #c0aa8b;
+  font-size: 0.7rem;
+  transition: 0.3s ease;
+}
+
+.aba:hover .aba-seta {
+  transform: translateX(3px);
+}
+
+.conteudo-card {
+  overflow: hidden;
+  border: 1px solid rgba(89, 63, 42, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 20px 55px rgba(63, 43, 28, 0.07);
+  backdrop-filter: blur(10px);
+}
+
+.conteudo-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid rgba(89, 63, 42, 0.07);
+}
+
+.conteudo-identidade {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.icone-conteudo {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 15px;
+  background: #f4eee5;
+  color: #987648;
+}
+
+.conteudo-identidade h2 {
+  margin: 3px 0 0;
+  color: #463125;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 50px;
+  background: #f8f3ea;
+  color: #a18b70;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.status-pill i {
+  font-size: 0.35rem;
+  color: #c0a06c;
 }
 
 .placeholder {
-  text-align: center;
-  color: #999;
-  padding: 3rem 0;
+  position: relative;
   display: flex;
-  flex-direction: column;
+  min-height: 410px;
   align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 24px;
+  overflow: hidden;
+  text-align: center;
 }
 
-.placeholder i {
-  font-size: 3rem;
-  color: #eaddc5;
+.placeholder::before {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  background: rgba(194, 165, 112, 0.055);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.placeholder-ilustracao {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  margin-bottom: 24px;
+}
+
+.placeholder-circulo {
+  position: absolute;
+  inset: 12px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(169, 137, 87, 0.18);
+  border-radius: 50%;
+  background: #fbf7f0;
+  color: #b29362;
+  box-shadow: 0 15px 30px rgba(85, 59, 37, 0.07);
+}
+
+.placeholder-circulo i {
+  font-size: 1.7rem;
+}
+
+.decor {
+  position: absolute;
+  border-radius: 50%;
+  background: #d9c29b;
+}
+
+.decor-one {
+  width: 7px;
+  height: 7px;
+  top: 7px;
+  right: 20px;
+}
+
+.decor-two {
+  width: 11px;
+  height: 11px;
+  bottom: 10px;
+  left: 4px;
+  opacity: 0.55;
+}
+
+.decor-three {
+  width: 5px;
+  height: 5px;
+  top: 32px;
+  left: 0;
+  opacity: 0.65;
+}
+
+.placeholder h3 {
+  position: relative;
+  margin: 8px 0 12px;
+  color: #432f22;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.55rem, 5vw, 2rem);
+  line-height: 1.2;
+}
+
+.placeholder p {
+  position: relative;
+  max-width: 390px;
+  margin: 0 0 25px;
+  color: #958374;
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.btn-voltar-perfil {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border: 1px solid rgba(108, 78, 50, 0.1);
+  border-radius: 50px;
+  background: #4b3527;
+  color: #fffaf3;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(75, 53, 39, 0.18);
+  transition: 0.25s ease;
+}
+
+.btn-voltar-perfil:hover {
+  transform: translateY(-2px);
+  background: #39281e;
+  box-shadow: 0 14px 28px rgba(75, 53, 39, 0.22);
+}
+
+.btn-voltar-perfil i {
+  font-size: 0.68rem;
+}
+
+.page-footer {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 32px;
+  color: #b19d87;
+  font-size: 0.68rem;
+}
+
+.page-footer .linha {
+  width: 55px;
+  height: 1px;
+  background: rgba(139, 113, 83, 0.18);
+}
+
+.page-footer div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.page-footer i {
+  color: #b49361;
+  font-size: 0.58rem;
+}
+
+@media (max-width: 700px) {
+  .geral-container {
+    padding: 22px 16px 34px;
+  }
+
+  .page-header {
+    margin-bottom: 32px;
+  }
+
+  .btn-voltar {
+    margin-bottom: 25px;
+  }
+
+  .header-copy h1 {
+    font-size: 2.45rem;
+    max-width: 250px;
+  }
+
+  .header-copy p {
+    max-width: 300px;
+    font-size: 0.85rem;
+  }
+
+  .header-decoration {
+    top: 72px;
+    right: -3px;
+    width: 70px;
+    height: 70px;
+  }
+
+  .header-decoration i {
+    font-size: 1.1rem;
+  }
+
+  .header-decoration span {
+    inset: 7px;
+  }
+
+  .section-heading {
+    align-items: center;
+  }
+
+  .section-heading h2 {
+    font-size: 1.25rem;
+  }
+
+  .abas-container {
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    padding: 3px 2px 9px;
+    scrollbar-width: none;
+  }
+
+  .abas-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .aba {
+    flex: 0 0 170px;
+    min-height: 86px;
+    padding: 13px;
+    border-radius: 18px;
+  }
+
+  .aba-icone {
+    flex-basis: 39px;
+    width: 39px;
+    height: 39px;
+  }
+
+  .aba-texto strong {
+    font-size: 0.78rem;
+  }
+
+  .aba-texto small {
+    font-size: 0.62rem;
+  }
+
+  .aba-seta {
+    display: none;
+  }
+
+  .conteudo-topo {
+    padding: 18px;
+  }
+
+  .icone-conteudo {
+    width: 42px;
+    height: 42px;
+  }
+
+  .conteudo-identidade h2 {
+    font-size: 1.05rem;
+  }
+
+  .status-pill {
+    padding: 6px 8px;
+    font-size: 0.58rem;
+  }
+
+  .placeholder {
+    min-height: 390px;
+    padding: 40px 20px;
+  }
+
+  .placeholder h3 {
+    font-size: 1.55rem;
+  }
+
+  .placeholder p {
+    max-width: 300px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .header-decoration {
+    display: none;
+  }
+
+  .header-copy h1 {
+    font-size: 2.2rem;
+  }
+
+  .contador {
+    display: none;
+  }
+
+  .aba {
+    flex-basis: 155px;
+  }
+
+  .conteudo-topo {
+    align-items: flex-start;
+  }
+
+  .status-pill {
+    display: none;
+  }
 }
 </style>
