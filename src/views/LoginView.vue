@@ -3,55 +3,90 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
+
 const email = ref("");
 const senha = ref("");
 const erro = ref("");
+
 const mostrarModal = ref(false);
 const novoEmail = ref("");
 const novaSenha = ref("");
+const erroCadastro = ref("");
+
+const baseUrl =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 const fazerLogin = async () => {
+  erro.value = "";
+
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/login/", {
+    const response = await fetch(`${baseUrl}/login/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.value, password: senha.value }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.value,
+        password: senha.value,
+      }),
     });
 
+    const data = await response.json();
+
     if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem("token", data.token || data.access);
+      localStorage.setItem("token", data.access || data.token);
       router.push("/menu");
     } else {
-      erro.value = "Email ou senha incorretos.";
+      erro.value =
+        data.detail ||
+        data.message ||
+        "Email ou senha incorretos.";
     }
   } catch (err) {
+    console.error("Erro no login:", err);
     erro.value = "Erro ao conectar ao servidor.";
   }
 };
 
 const registrarUsuario = async () => {
+  erroCadastro.value = "";
+
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/cadastro/", {
+    const response = await fetch(`${baseUrl}/cadastro/`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
         email: novoEmail.value,
         password: novaSenha.value,
-        username: novoEmail.value
+        username: novoEmail.value,
       }),
     });
 
+    const data = await response.json();
+
+    console.log("Resposta cadastro:", data);
+
     if (response.ok) {
       alert("Conta criada com sucesso!");
+
       mostrarModal.value = false;
+
       novoEmail.value = "";
       novaSenha.value = "";
     } else {
-      alert("Erro ao cadastrar. Verifique os dados.");
+      if (typeof data === "object") {
+        erroCadastro.value = Object.values(data)
+          .flat()
+          .join(" ");
+      } else {
+        erroCadastro.value = "Erro ao cadastrar.";
+      }
     }
   } catch (err) {
-    alert("Erro de conexão.");
+    console.error("Erro no cadastro:", err);
+    erroCadastro.value = "Erro de conexão com o servidor.";
   }
 };
 </script>
@@ -63,33 +98,94 @@ const registrarUsuario = async () => {
     <div class="right-side">
       <div class="login-box">
         <div class="icon-circle">
-          <i class="fa-solid fa-user" style="color: rgb(255, 255, 255)"></i>
+          <i
+            class="fa-solid fa-user"
+            style="color: rgb(255, 255, 255)"
+          ></i>
         </div>
+
         <h1>Login</h1>
 
-        <input v-model="email" type="email" placeholder="Email" class="input-field" />
-        <input v-model="senha" type="password" placeholder="Senha" class="input-field" />
+        <input
+          v-model="email"
+          type="email"
+          placeholder="Email"
+          class="input-field"
+        />
 
-        <button @click="fazerLogin" class="btn-login">Logar agora</button>
-        <p v-if="erro" class="error-msg">{{ erro }}</p>
+        <input
+          v-model="senha"
+          type="password"
+          placeholder="Senha"
+          class="input-field"
+        />
+
+        <button @click="fazerLogin" class="btn-login">
+          Logar agora
+        </button>
+
+        <p v-if="erro" class="error-msg">
+          {{ erro }}
+        </p>
 
         <div class="footer-text">
-          <h4 class="welcome-text">Bem-vindo novamente!</h4>
+          <h4 class="welcome-text">
+            Bem-vindo novamente!
+          </h4>
+
           <p>Ainda sem cadastro? Sem problemas!</p>
-          <button @click="mostrarModal = true" class="link-cadastro">Cadastrar agora</button>
+
+          <button
+            @click="mostrarModal = true"
+            class="link-cadastro"
+          >
+            Cadastrar agora
+          </button>
         </div>
       </div>
     </div>
 
-    <div v-if="mostrarModal" class="modal-overlay">
+    <div
+      v-if="mostrarModal"
+      class="modal-overlay"
+    >
       <div class="modal-content">
-        <button @click="mostrarModal = false" class="btn-x">×</button>
+        <button
+          @click="mostrarModal = false"
+          class="btn-x"
+        >
+          &times;
+        </button>
+
         <h3>Criar Nova Conta</h3>
 
-        <input v-model="novoEmail" type="email" placeholder="Seu email" class="input-field" />
-        <input v-model="novaSenha" type="password" placeholder="Crie uma senha" class="input-field" />
+        <input
+          v-model="novoEmail"
+          type="email"
+          placeholder="Seu email"
+          class="input-field"
+        />
 
-        <button class="btn-login" @click="registrarUsuario">Finalizar Cadastro</button>
+        <input
+          v-model="novaSenha"
+          type="password"
+          placeholder="Crie uma senha"
+          class="input-field"
+        />
+
+        <button
+          class="btn-login"
+          @click="registrarUsuario"
+        >
+          Finalizar Cadastro
+        </button>
+
+        <p
+          v-if="erroCadastro"
+          class="error-msg"
+        >
+          {{ erroCadastro }}
+        </p>
       </div>
     </div>
   </div>
@@ -99,6 +195,7 @@ const registrarUsuario = async () => {
 .icon-circle {
   font-size: 3rem;
 }
+
 .login-container {
   display: flex;
   height: 100vh;
@@ -133,7 +230,9 @@ const registrarUsuario = async () => {
   border-radius: 10px;
   width: 100%;
   border: none;
+  box-sizing: border-box;
 }
+
 .btn-login {
   margin-top: 10px;
   background-color: #00e676;
@@ -154,6 +253,7 @@ const registrarUsuario = async () => {
 
 .footer-text {
   margin-top: 10px;
+  text-align: center;
 }
 
 .link-cadastro {
@@ -172,7 +272,9 @@ const registrarUsuario = async () => {
 .error-msg {
   color: #ff5252;
   margin-top: 10px;
+  text-align: center;
 }
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -207,6 +309,7 @@ const registrarUsuario = async () => {
   margin-bottom: 10px;
   color: #2e1a14;
 }
+
 .btn-x {
   position: absolute;
   top: 10px;
@@ -217,7 +320,6 @@ const registrarUsuario = async () => {
   font-weight: bold;
   cursor: pointer;
   color: #2e1a14;
-  transition: color 0.2s;
 }
 
 .btn-x:active {
