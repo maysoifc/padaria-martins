@@ -7,14 +7,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependências
 node_modules
+
+# Arquivos de sistema
 .DS_Store
+
+# Build
 dist
 dist-ssr
+
+# Coverage
 coverage
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*.local
+
+# Arquivos locais
 *.local
 
-# Editor directories and files
+# Editor
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -24,8 +38,10 @@ coverage
 *.sln
 *.sw?
 
+# TypeScript
 *.tsbuildinfo
 
+# ESLint
 .eslintcache
 
 # Cypress
@@ -38,5 +54,6 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
+# Playwright
 test-results/
 playwright-report/
