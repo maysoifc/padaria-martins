@@ -2,7 +2,8 @@
 import { ref, onMounted } from "vue";
 import defaultAvatar from "@/assets/perfil/default-avatar.png";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
 
 const usuario = ref({
   username: "Carregando...",
@@ -11,6 +12,7 @@ const usuario = ref({
 });
 
 const fileInput = ref(null);
+const carregandoFoto = ref(false);
 
 const handleImageError = (event) => {
   event.target.onerror = null;
@@ -30,25 +32,27 @@ const carregarPerfil = async () => {
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/perfil/`, {
+    const response = await fetch(`${API_URL}/perfil/`, {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     });
-
-    if (!response.ok) {
-      console.error("Erro ao carregar perfil:", response.status);
-      return;
-    }
 
     const dados = await response.json();
 
     console.log("Perfil recebido:", dados);
 
+    if (!response.ok) {
+      console.error("Erro ao carregar perfil:", dados);
+      return;
+    }
+
     usuario.value = {
-      username: dados.username,
-      email: dados.email,
-      foto_perfil: dados.foto_perfil,
+      username: dados.username || "",
+      email: dados.email || "",
+      foto_perfil: dados.foto_perfil || null,
     };
   } catch (error) {
     console.error("Erro ao buscar perfil:", error);
@@ -59,19 +63,23 @@ const atualizarFoto = async (event) => {
   const arquivo = event.target.files?.[0];
 
   if (!arquivo) {
-    console.warn("Nenhum arquivo selecionado.");
     return;
   }
 
-  console.log("Arquivo selecionado:", arquivo);
-
   const token = localStorage.getItem("token");
+
+  if (!token) {
+    console.error("Token não encontrado.");
+    return;
+  }
 
   const formData = new FormData();
   formData.append("foto_perfil", arquivo);
 
+  carregandoFoto.value = true;
+
   try {
-    const response = await fetch(`${API_URL}/api/perfil/`, {
+    const response = await fetch(`${API_URL}/perfil/`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -88,11 +96,18 @@ const atualizarFoto = async (event) => {
       return;
     }
 
-    usuario.value.foto_perfil = dados.foto_perfil
-      ? `${dados.foto_perfil}?t=${Date.now()}`
-      : null;
+    usuario.value = {
+      username: dados.username || usuario.value.username,
+      email: dados.email || usuario.value.email,
+      foto_perfil: dados.foto_perfil
+        ? `${dados.foto_perfil}?t=${Date.now()}`
+        : null,
+    };
   } catch (error) {
     console.error("Erro ao enviar imagem:", error);
+  } finally {
+    carregandoFoto.value = false;
+    event.target.value = "";
   }
 };
 
@@ -118,20 +133,13 @@ onMounted(() => {
         title="Clique para alterar a foto"
       >
         <img
-         v-if="usuario.foto_perfil"
-        :src="usuario.foto_perfil"
-        alt="Foto de Perfil"
-        @error="handleImageError"
-      />
-
-      <img
-      :src="usuario.foto_perfil || defaultAvatar"
-      alt="Foto de Perfil"
-      @error="handleImageError"
-      />
+          :src="usuario.foto_perfil || defaultAvatar"
+          alt="Foto de Perfil"
+          @error="handleImageError"
+        />
 
         <div class="overlay-editar">
-          Editar
+          {{ carregandoFoto ? "Enviando..." : "Editar" }}
         </div>
       </div>
 
@@ -149,6 +157,14 @@ onMounted(() => {
   justify-content: center;
   padding: 20px;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.perfil-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 .avatar-usuario {
@@ -164,6 +180,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .overlay-editar {
