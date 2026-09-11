@@ -1,109 +1,345 @@
 <script setup>
 const promocoes = [
-  { id: 1, titulo: 'Promoção de bebidas', dia: 'Todas as Segundas', imagem: '/img/bebidas.jpg', categoria: 'Bebidas' },
-  { id: 2, titulo: 'Promoção de pães', dia: 'Todas as Quartas', imagem: '/img/paes.jpg', categoria: 'Pães' },
-  { id: 3, titulo: 'Promoção de doces', dia: 'Todas as Quintas', imagem: '/img/doces.jpg', categoria: 'Doces' },
-  { id: 4, titulo: 'Promoção de salgados', dia: 'Todos os Sábados', imagem: '/img/assados.jpg', categoria: 'Salgados' }
+  {
+    id: 1,
+    titulo: "Promoção de bebidas",
+    dia: "Todas as segundas",
+    imagem: "/img/bebidas.jpg",
+    categoria: "Bebidas",
+    destaque: "Comece a semana refrescando"
+  },
+  {
+    id: 2,
+    titulo: "Promoção de pães",
+    dia: "Todas as quartas",
+    imagem: "/img/paes.jpg",
+    categoria: "Pães",
+    destaque: "Pães fresquinhos para você"
+  },
+  {
+    id: 3,
+    titulo: "Promoção de doces",
+    dia: "Todas as quintas",
+    imagem: "/img/doces.jpg",
+    categoria: "Doces",
+    destaque: "Um docinho para deixar o dia melhor"
+  },
+  {
+    id: 4,
+    titulo: "Promoção de salgados",
+    dia: "Todos os sábados",
+    imagem: "/img/assados.jpg",
+    categoria: "Salgados",
+    destaque: "Seu sábado merece um sabor especial"
+  }
 ];
 </script>
 
 <template>
   <section class="promocoes-bloco">
-    <h2 class="titulo-sessao">Promoções da semana</h2>
+
+    <div class="cabecalho-promocoes">
+      <div>
+        <span class="mini-titulo">APROVEITE</span>
+        <h2 class="titulo-sessao">Promoções da semana</h2>
+      </div>
+
+      <span class="seta-titulo">
+        <i class="fas fa-tags"></i>
+      </span>
+    </div>
 
     <div class="grade-promocoes">
+
       <RouterLink
         v-for="promo in promocoes"
         :key="promo.id"
         :to="{ path: '/menu', query: { categoria: promo.categoria } }"
         class="promo-card"
       >
-        <img :src="promo.imagem" :alt="promo.titulo" class="promo-img">
-        <div class="promo-info">
-          <h4>{{ promo.titulo }}</h4>
-          <span class="dia-promo">{{ promo.dia }}</span>
+
+        <div class="promo-imagem">
+
+          <img
+            :src="promo.imagem"
+            :alt="promo.titulo"
+            class="promo-img"
+          >
+
+          <div class="imagem-overlay"></div>
+
+          <span class="selo-promo">
+            <i class="fas fa-percent"></i>
+            OFERTA
+          </span>
+
+          <span class="dia-promo">
+            {{ promo.dia }}
+          </span>
+
         </div>
+
+        <div class="promo-info">
+
+          <span class="categoria-promo">
+            {{ promo.categoria }}
+          </span>
+
+          <h3>
+            {{ promo.titulo }}
+          </h3>
+
+          <p>
+            {{ promo.destaque }}
+          </p>
+
+          <div class="promo-link">
+            <span>Ver ofertas</span>
+            <i class="fas fa-arrow-right"></i>
+          </div>
+
+        </div>
+
       </RouterLink>
+
     </div>
+
   </section>
 </template>
+
 <style scoped>
 .promocoes-bloco {
-  padding-bottom: 20px;
+  width: 100%;
+  padding: 8px 0 28px;
+  box-sizing: border-box;
 }
-.titulo-sessao {
-  color: #5E3023;
-  font-family: 'Imprima';
-  font-size: 1.6rem;
+
+.cabecalho-promocoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  margin-bottom: 15px;
+}
+
+.mini-titulo {
+  display: block;
+  margin-bottom: 3px;
+  color: #bba270;
+  font-size: 0.65rem;
   font-weight: 800;
-  line-height: 1.2;
-  margin: 20px auto 10px auto;
-  text-align: center;
+  letter-spacing: 1.5px;
+}
+
+.titulo-sessao {
+  margin: 0;
+  color: #5e3023;
+  font-family: "Imprima", Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.seta-titulo {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #f4ecdf;
+  color: #6a3828;
+  font-size: 14px;
 }
 
 .grade-promocoes {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
   width: 100%;
-  max-width: 100%;
-  padding: 0 16px;
-  gap: 12px;
+  padding: 0 15px;
   box-sizing: border-box;
-  margin: 0 auto;
 }
 
 .promo-card {
-  background-color: #ffffff;
-  border-radius: 20px;
-  text-align: center;
+  display: block;
   overflow: hidden;
-  border: 1px solid #eee;
-  transition: transform 0.1s ease;
+  background: #ffffff;
+  border: 1px solid #eee5da;
+  border-radius: 20px;
   text-decoration: none;
+  box-shadow: 0 5px 16px rgba(94, 48, 35, 0.07);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.promo-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(94, 48, 35, 0.13);
 }
 
 .promo-card:active {
-  transform: scale(0.96);
-  background-color: #f5f5f5;
+  transform: scale(0.97);
 }
 
-.img-weapper {
+.promo-imagem {
+  position: relative;
   width: 100%;
-  height: 90px;
+  height: 125px;
+  overflow: hidden;
+  background: #eee4d7;
 }
+
 .promo-img {
   width: 100%;
-  height: 100px;
+  height: 100%;
+  display: block;
   object-fit: cover;
-  border-radius: 20px 20px 0 0;
+  transition: transform 0.4s ease;
 }
 
-.promo-info {
-  padding: 10px;
+.promo-card:hover .promo-img {
+  transform: scale(1.06);
 }
 
-.promo-info h4 {
-  color: #545050;
-  font-size: 1rem;
-  margin:0 0 6px 0;
-  font-weight: 600;
-  font-family: 'Inter';
+.imagem-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(55, 30, 22, 0.05),
+    rgba(55, 30, 22, 0.42)
+  );
+  pointer-events: none;
+}
+
+.selo-promo {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #5e3023;
+  color: #ffffff;
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.selo-promo i {
+  font-size: 8px;
+  color: #e1c98f;
 }
 
 .dia-promo {
-  background-color: #D9CAB3;
-  color:#545050;
-  padding: 2px 8px;
-  border-radius: 15px;
-  font-size: 0.7rem;
-  display: inline-block;
-  font-weight: 700;
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #5e3023;
+  font-size: 0.58rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.promo-info {
+  padding: 13px 13px 14px;
+}
+
+.categoria-promo {
+  display: block;
+  margin-bottom: 4px;
+  color: #bba270;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 1px;
   text-transform: uppercase;
 }
-@media (max-width: 320px){
+
+.promo-info h3 {
+  margin: 0;
+  color: #5e3023;
+  font-family: "Imprima", Georgia, serif;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.promo-info p {
+  min-height: 30px;
+  margin: 6px 0 11px;
+  color: #88776a;
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.promo-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #6a3828;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.promo-link i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: #f4ecdf;
+  font-size: 9px;
+  transition: transform 0.2s ease;
+}
+
+.promo-card:hover .promo-link i {
+  transform: translateX(3px);
+}
+
+@media (max-width: 380px) {
+  .grade-promocoes {
+    gap: 10px;
+    padding: 0 12px;
+  }
+
+  .promo-imagem {
+    height: 110px;
+  }
+
+  .promo-info {
+    padding: 11px;
+  }
+
+  .promo-info h3 {
+    font-size: 0.93rem;
+  }
+
+  .promo-info p {
+    font-size: 0.65rem;
+  }
+
+  .dia-promo {
+    font-size: 0.52rem;
+  }
+}
+
+@media (max-width: 320px) {
   .grade-promocoes {
     grid-template-columns: 1fr;
   }
+
+  .promo-imagem {
+    height: 150px;
+  }
 }
 </style>
-
