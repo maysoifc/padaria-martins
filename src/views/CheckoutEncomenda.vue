@@ -1,11 +1,16 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useFidelidade } from '@/composables/useFidelidade';
+import PagamentoCartao from '@/components/PagamentoCartao.vue';
 
 const router = useRouter();
 
+const { adicionarSelo } = useFidelidade();
+
 const itensCompra = ref([]);
 const etapaAtual = ref(1);
+const cartaoSelecionado = ref(null);
 
 const form = ref({
   nome: '',
@@ -16,12 +21,15 @@ const form = ref({
 });
 
 const hoje = new Date().toISOString().split('T')[0];
+
 const dataMaxima = new Date(
   Date.now() + 30 * 24 * 60 * 60 * 1000
 ).toISOString().split('T')[0];
 
 const formatarTelefone = (event) => {
-  form.value.telefone = event.target.value.replace(/\D/g, '').slice(0, 11);
+  form.value.telefone = event.target.value
+    .replace(/\D/g, '')
+    .slice(0, 11);
 };
 
 onMounted(() => {
@@ -29,7 +37,8 @@ onMounted(() => {
 
   if (dados) {
     try {
-      itensCompra.value = JSON.parse(dados);
+      const parsed = JSON.parse(dados);
+      itensCompra.value = Array.isArray(parsed) ? parsed : [];
     } catch {
       itensCompra.value = [];
     }
@@ -38,7 +47,7 @@ onMounted(() => {
 
 const subtotal = computed(() => {
   return itensCompra.value.reduce((total, item) => {
-    return total + parseFloat(item.preco || 0) * (item.qtd || 1);
+    return total + parseFloat(item.preco || 0) * Number(item.qtd || 1);
   }, 0);
 });
 
@@ -52,9 +61,119 @@ const progressoPercent = computed(() => {
   return ((etapaAtual.value - 1) / 3) * 100;
 });
 
-const nomePagamento = computed(() => {
-  return form.value.formaPagamento === 'pix' ? 'PIX' : 'Cartão';
+const pagamentoCartao = computed(() => {
+  if (form.value.formaPagamento !== 'cartao') {
+    return null;
+  }
+
+  return cartaoSelecionado.value;
 });
+
+const parcelas = computed(() => {
+  if (!pagamentoCartao.value) {
+    return 1;
+  }
+
+  const quantidade = Number(pagamentoCartao.value.parcelas || 1);
+
+  return quantidade > 0 ? quantidade : 1;
+});
+
+const juros = computed(() => {
+  if (!pagamentoCartao.value) {
+    return 0;
+  }
+
+  const valor = Number(pagamentoCartao.value.juros || 0);
+
+  return Number.isFinite(valor) && valor > 0 ? valor : 0;
+});
+
+const totalComJuros = computed(() => {
+  if (
+    form.value.formaPagamento !== 'cartao' ||
+    !pagamentoCartao.value
+  ) {
+    return subtotal.value;
+  }
+
+  const total = Number(pagamentoCartao.value.totalComJuros);
+
+  if (Number.isFinite(total) && total > 0) {
+    return total;
+  }
+
+  return subtotal.value;
+});
+
+const valorParcela = computed(() => {
+  if (
+    form.value.formaPagamento !== 'cartao' ||
+    !pagamentoCartao.value
+  ) {
+    return subtotal.value;
+  }
+
+  const valor = Number(pagamentoCartao.value.valorParcela);
+
+  if (Number.isFinite(valor) && valor > 0) {
+    return valor;
+  }
+
+  return totalComJuros.value / parcelas.value;
+});
+
+const temParcelamento = computed(() => {
+  return (
+    form.value.formaPagamento === 'cartao' &&
+    parcelas.value > 1
+  );
+});
+
+const nomePagamento = computed(() => {
+  if (form.value.formaPagamento === 'pix') {
+    return 'PIX';
+  }
+
+  if (
+    form.value.formaPagamento === 'cartao' &&
+    cartaoSelecionado.value
+  ) {
+    const final = cartaoSelecionado.value.final || '';
+
+    if (parcelas.value > 1) {
+      return `Cartão •••• ${final} • ${parcelas.value}x de R$ ${valorParcela.value
+        .toFixed(2)
+        .replace('.', ',')}`;
+    }
+
+    return `Cartão •••• ${final}`;
+  }
+
+  return 'Cartão';
+});
+
+const textoParcelamento = computed(() => {
+  if (form.value.formaPagamento !== 'cartao') {
+    return '';
+  }
+
+  if (parcelas.value <= 1) {
+    return `1x de R$ ${valorParcela.value
+      .toFixed(2)
+      .replace('.', ',')}`;
+  }
+
+  return `${parcelas.value}x de R$ ${valorParcela.value
+    .toFixed(2)
+    .replace('.', ',')}`;
+});
+
+const formatarMoeda = (valor) => {
+  return Number(valor || 0)
+    .toFixed(2)
+    .replace('.', ',');
+};
 
 const formatarData = (data) => {
   if (!data) return '';
@@ -110,8 +229,19 @@ const proximaEtapa = () => {
     }
   }
 
+  if (etapaAtual.value === 3) {
+    if (
+      form.value.formaPagamento === 'cartao' &&
+      !cartaoSelecionado.value
+    ) {
+      alert('Selecione ou cadastre um cartão para continuar.');
+      return;
+    }
+  }
+
   if (etapaAtual.value < 4) {
     etapaAtual.value++;
+
     window.scrollTo({
       top: 0,
       behavior: 'smooth'
@@ -131,14 +261,123 @@ const etapaAnterior = () => {
 };
 
 const finalizarCompra = () => {
-  alert('Encomenda realizada com sucesso! 🎉');
+  if (!itensCompra.value.length) {
+    alert('Sua encomenda está vazia.');
+    return;
+  }
+
+  if (!form.value.nome.trim()) {
+    alert('Informe seu nome para continuar.');
+    etapaAtual.value = 2;
+    return;
+  }
+
+  if (
+    !form.value.telefone ||
+    !/^\d{10,11}$/.test(form.value.telefone)
+  ) {
+    alert('Informe um telefone válido.');
+    etapaAtual.value = 2;
+    return;
+  }
+
+  if (!form.value.dataRetirada || !form.value.horarioRetirada) {
+    alert('Informe a data e o horário da retirada.');
+    etapaAtual.value = 2;
+    return;
+  }
+
+  if (
+    form.value.formaPagamento === 'cartao' &&
+    !cartaoSelecionado.value
+  ) {
+    alert('Selecione ou cadastre um cartão para continuar.');
+    etapaAtual.value = 3;
+    return;
+  }
+
+  adicionarSelo(subtotal.value);
+
+  const encomendaFinalizada = {
+    id: Date.now(),
+    data: new Date().toISOString(),
+
+    cliente: {
+      nome: form.value.nome.trim(),
+      telefone: form.value.telefone
+    },
+
+    retirada: {
+      data: form.value.dataRetirada,
+      horario: form.value.horarioRetirada
+    },
+
+    formaPagamento: form.value.formaPagamento,
+
+    pagamentoFormatado: nomePagamento.value,
+
+    cartao:
+      form.value.formaPagamento === 'cartao'
+        ? cartaoSelecionado.value
+        : null,
+
+    parcelas:
+      form.value.formaPagamento === 'cartao'
+        ? parcelas.value
+        : 1,
+
+    valorParcela:
+      form.value.formaPagamento === 'cartao'
+        ? valorParcela.value
+        : subtotal.value,
+
+    juros:
+      form.value.formaPagamento === 'cartao'
+        ? juros.value
+        : 0,
+
+    totalComJuros:
+      form.value.formaPagamento === 'cartao'
+        ? totalComJuros.value
+        : subtotal.value,
+
+    total: totalComJuros.value,
+
+    quantidadeItens: quantidadeItens.value,
+
+    itens: itensCompra.value
+  };
+
+  let historico = [];
+
+  try {
+    const salvo = localStorage.getItem('historicoEncomendas');
+
+    if (salvo) {
+      const dados = JSON.parse(salvo);
+
+      if (Array.isArray(dados)) {
+        historico = dados;
+      }
+    }
+  } catch {
+    historico = [];
+  }
+
+  historico.unshift(encomendaFinalizada);
+
+  localStorage.setItem(
+    'historicoEncomendas',
+    JSON.stringify(historico)
+  );
 
   localStorage.removeItem('encomenda');
+
+  alert('Encomenda realizada com sucesso! 🎉');
 
   router.push('/home');
 };
 </script>
-
 <template>
   <div class="checkout-page">
 
@@ -166,7 +405,10 @@ const finalizarCompra = () => {
 
         <div class="progress-top">
           <div>
-            <span class="progress-caption">ETAPA {{ etapaAtual }} DE 4</span>
+            <span class="progress-caption">
+              ETAPA {{ etapaAtual }} DE 4
+            </span>
+
             <strong>
               {{
                 etapaAtual === 1
@@ -196,7 +438,10 @@ const finalizarCompra = () => {
 
           <div
             class="step"
-            :class="{ active: etapaAtual >= 1, current: etapaAtual === 1 }"
+            :class="{
+              active: etapaAtual >= 1,
+              current: etapaAtual === 1
+            }"
           >
             <div class="step-icon">01</div>
             <span>Encomenda</span>
@@ -204,7 +449,10 @@ const finalizarCompra = () => {
 
           <div
             class="step"
-            :class="{ active: etapaAtual >= 2, current: etapaAtual === 2 }"
+            :class="{
+              active: etapaAtual >= 2,
+              current: etapaAtual === 2
+            }"
           >
             <div class="step-icon">02</div>
             <span>Retirada</span>
@@ -212,7 +460,10 @@ const finalizarCompra = () => {
 
           <div
             class="step"
-            :class="{ active: etapaAtual >= 3, current: etapaAtual === 3 }"
+            :class="{
+              active: etapaAtual >= 3,
+              current: etapaAtual === 3
+            }"
           >
             <div class="step-icon">03</div>
             <span>Pagamento</span>
@@ -220,7 +471,10 @@ const finalizarCompra = () => {
 
           <div
             class="step"
-            :class="{ active: etapaAtual >= 4, current: etapaAtual === 4 }"
+            :class="{
+              active: etapaAtual >= 4,
+              current: etapaAtual === 4
+            }"
           >
             <div class="step-icon">04</div>
             <span>Finalizar</span>
@@ -234,7 +488,6 @@ const finalizarCompra = () => {
 
         <div class="main-card">
 
-          <!-- ETAPA 1 -->
           <div
             v-if="etapaAtual === 1"
             class="step-content"
@@ -281,7 +534,8 @@ const finalizarCompra = () => {
                   R$
                   {{
                     (
-                      parseFloat(item.preco || 0) * (item.qtd || 1)
+                      parseFloat(item.preco || 0) *
+                      (item.qtd || 1)
                     ).toFixed(2).replace('.', ',')
                   }}
                 </strong>
@@ -307,7 +561,7 @@ const finalizarCompra = () => {
               </div>
 
               <strong>
-                R$ {{ subtotal.toFixed(2).replace('.', ',') }}
+                R$ {{ formatarMoeda(subtotal) }}
               </strong>
 
             </div>
@@ -324,7 +578,6 @@ const finalizarCompra = () => {
 
           </div>
 
-          <!-- ETAPA 2 -->
           <div
             v-if="etapaAtual === 2"
             class="step-content"
@@ -345,6 +598,7 @@ const finalizarCompra = () => {
 
                 <div class="input-wrapper">
                   <span>♙</span>
+
                   <input
                     type="text"
                     v-model="form.nome"
@@ -359,6 +613,7 @@ const finalizarCompra = () => {
 
                 <div class="input-wrapper">
                   <span>⌕</span>
+
                   <input
                     type="tel"
                     :value="form.telefone"
@@ -377,6 +632,7 @@ const finalizarCompra = () => {
 
                 <div class="input-wrapper">
                   <span>◷</span>
+
                   <input
                     type="date"
                     v-model="form.dataRetirada"
@@ -391,6 +647,7 @@ const finalizarCompra = () => {
 
                 <div class="input-wrapper">
                   <span>◴</span>
+
                   <input
                     type="time"
                     v-model="form.horarioRetirada"
@@ -403,15 +660,20 @@ const finalizarCompra = () => {
             </div>
 
             <div class="info-banner">
-              <div class="info-banner-icon">✦</div>
+
+              <div class="info-banner-icon">
+                ✦
+              </div>
 
               <div>
                 <strong>Retirada na loja</strong>
+
                 <p>
                   Funcionamos todos os dias das 06h às 22h.
                   Escolha o melhor horário para você.
                 </p>
               </div>
+
             </div>
 
             <div class="navigation">
@@ -435,7 +697,6 @@ const finalizarCompra = () => {
 
           </div>
 
-          <!-- ETAPA 3 -->
           <div
             v-if="etapaAtual === 3"
             class="step-content"
@@ -453,7 +714,9 @@ const finalizarCompra = () => {
 
               <label
                 class="payment-card"
-                :class="{ selected: form.formaPagamento === 'pix' }"
+                :class="{
+                  selected: form.formaPagamento === 'pix'
+                }"
               >
 
                 <input
@@ -479,7 +742,9 @@ const finalizarCompra = () => {
 
               <label
                 class="payment-card"
-                :class="{ selected: form.formaPagamento === 'cartao' }"
+                :class="{
+                  selected: form.formaPagamento === 'cartao'
+                }"
               >
 
                 <input
@@ -505,8 +770,15 @@ const finalizarCompra = () => {
 
             </div>
 
+            <PagamentoCartao
+              v-if="form.formaPagamento === 'cartao'"
+              v-model="cartaoSelecionado"
+              :valor="subtotal"
+            />
+
             <div class="secure-message">
               <span>⌾</span>
+
               <div>
                 <strong>Pagamento seguro</strong>
                 <p>Seus dados são tratados com segurança.</p>
@@ -534,7 +806,6 @@ const finalizarCompra = () => {
 
           </div>
 
-          <!-- ETAPA 4 -->
           <div
             v-if="etapaAtual === 4"
             class="step-content"
@@ -570,6 +841,7 @@ const finalizarCompra = () => {
                 </div>
 
                 <div class="summary-content">
+
                   <div>
                     <span>Nome</span>
                     <strong>{{ form.nome }}</strong>
@@ -579,6 +851,7 @@ const finalizarCompra = () => {
                     <span>Telefone</span>
                     <strong>{{ form.telefone }}</strong>
                   </div>
+
                 </div>
 
               </div>
@@ -626,6 +899,7 @@ const finalizarCompra = () => {
                 </div>
 
                 <div class="payment-summary">
+
                   <div class="payment-summary-icon">
                     {{ form.formaPagamento === 'pix' ? '◈' : '▣' }}
                   </div>
@@ -634,6 +908,67 @@ const finalizarCompra = () => {
                     <span>Forma escolhida</span>
                     <strong>{{ nomePagamento }}</strong>
                   </div>
+
+                </div>
+
+                <div
+                  v-if="form.formaPagamento === 'cartao'"
+                  class="payment-details"
+                >
+
+                  <div class="payment-detail-row">
+
+                    <div>
+                      <span>Parcelamento</span>
+
+                      <strong>
+                        {{ textoParcelamento }}
+                      </strong>
+                    </div>
+
+                    <div
+                      v-if="juros > 0"
+                      class="interest-value"
+                    >
+                      <span>Juros</span>
+
+                      <strong>
+                        + R$ {{ formatarMoeda(juros) }}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  <div
+                    v-if="juros > 0"
+                    class="interest-message"
+                  >
+                    <span>✦</span>
+
+                    <div>
+                      <strong>Parcelamento com juros</strong>
+
+                      <p>
+                        O valor dos juros já está incluído no total da encomenda.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div
+                    v-else
+                    class="interest-message no-interest"
+                  >
+                    <span>✓</span>
+
+                    <div>
+                      <strong>Sem juros</strong>
+
+                      <p>
+                        Esta condição de pagamento não possui juros.
+                      </p>
+                    </div>
+                  </div>
+
                 </div>
 
               </div>
@@ -644,12 +979,129 @@ const finalizarCompra = () => {
 
               <div>
                 <span>Total da encomenda</span>
-                <small>{{ quantidadeItens }} itens selecionados</small>
+
+                <small>
+                  {{ quantidadeItens }}
+                  {{ quantidadeItens === 1 ? 'item' : 'itens' }}
+                  selecionados
+                </small>
               </div>
 
               <strong>
-                R$ {{ subtotal.toFixed(2).replace('.', ',') }}
+                R$ {{ formatarMoeda(totalComJuros) }}
               </strong>
+
+            </div>
+
+            <div
+              v-if="form.formaPagamento === 'cartao' && parcelas > 1"
+              class="installment-summary"
+            >
+
+              <div class="installment-main">
+
+                <span class="installment-icon">
+                  ▣
+                </span>
+
+                <div>
+                  <span>Valor por mês</span>
+
+                  <strong>
+                    {{ parcelas }}x de
+                    R$ {{ formatarMoeda(valorParcela) }}
+                  </strong>
+                </div>
+
+              </div>
+
+              <div
+                class="installment-total"
+                :class="{ 'has-interest': juros > 0 }"
+              >
+
+                <div>
+                  <span>
+                    {{ juros > 0 ? 'Total com juros' : 'Total' }}
+                  </span>
+
+                  <strong>
+                    R$ {{ formatarMoeda(totalComJuros) }}
+                  </strong>
+                </div>
+
+                <div v-if="juros > 0">
+                  <span>Juros</span>
+
+                  <strong>
+                    + R$ {{ formatarMoeda(juros) }}
+                  </strong>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div
+              v-else-if="form.formaPagamento === 'cartao'"
+              class="installment-summary"
+            >
+
+              <div class="installment-main">
+
+                <span class="installment-icon">
+                  ▣
+                </span>
+
+                <div>
+                  <span>Pagamento</span>
+
+                  <strong>
+                    1x de R$ {{ formatarMoeda(valorParcela) }}
+                  </strong>
+                </div>
+              </div>
+
+              <div class="installment-total">
+
+                <div>
+                  <span>Total</span>
+
+                  <strong>
+                    R$ {{ formatarMoeda(totalComJuros) }}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>Juros</span>
+
+                  <strong>R$ 0,00</strong>
+                </div>
+
+              </div>
+
+            </div>
+
+            <div
+              v-else
+              class="pix-summary"
+            >
+
+              <div class="pix-summary-icon">
+                ◈
+              </div>
+
+              <div>
+                <span>Pagamento via PIX</span>
+
+                <strong>
+                  R$ {{ formatarMoeda(subtotal) }}
+                </strong>
+
+                <small>
+                  Sem juros
+                </small>
+              </div>
 
             </div>
 
@@ -680,10 +1132,16 @@ const finalizarCompra = () => {
 
           <div class="aside-card">
 
-            <span class="aside-label">SUA ENCOMENDA</span>
+            <span class="aside-label">
+              SUA ENCOMENDA
+            </span>
 
             <div class="aside-title">
-              <h3>Um momento<br />feito para você.</h3>
+              <h3>
+                Um momento<br />
+                feito para você.
+              </h3>
+
               <span>✦</span>
             </div>
 
@@ -696,33 +1154,68 @@ const finalizarCompra = () => {
                 :key="`aside-${item.idProduto}`"
                 class="aside-item"
               >
-                <span>{{ item.qtd || 1 }}× {{ item.nome }}</span>
+
+                <span>
+                  {{ item.qtd || 1 }}× {{ item.nome }}
+                </span>
 
                 <strong>
                   R$
                   {{
                     (
-                      parseFloat(item.preco || 0) * (item.qtd || 1)
+                      parseFloat(item.preco || 0) *
+                      (item.qtd || 1)
                     ).toFixed(2).replace('.', ',')
                   }}
                 </strong>
+
               </div>
 
             </div>
 
             <div class="aside-total">
-              <span>Total</span>
+
+              <div>
+                <span>Total</span>
+
+                <small
+                  v-if="
+                    form.formaPagamento === 'cartao' &&
+                    parcelas > 1
+                  "
+                >
+                  {{ textoParcelamento }}
+                </small>
+              </div>
 
               <strong>
-                R$ {{ subtotal.toFixed(2).replace('.', ',') }}
+                R$ {{ formatarMoeda(totalComJuros) }}
+              </strong>
+
+            </div>
+
+            <div
+              v-if="
+                form.formaPagamento === 'cartao' &&
+                juros > 0
+              "
+              class="aside-interest"
+            >
+              <span>Juros do parcelamento</span>
+
+              <strong>
+                + R$ {{ formatarMoeda(juros) }}
               </strong>
             </div>
 
             <div class="aside-note">
+
               <span>✦</span>
+
               <p>
                 Preparado com carinho especialmente para você.
               </p>
+
             </div>
 
           </div>
@@ -735,7 +1228,6 @@ const finalizarCompra = () => {
 
   </div>
 </template>
-
 <style scoped>
 * {
   box-sizing: border-box;
@@ -896,7 +1388,7 @@ const finalizarCompra = () => {
   height: 100%;
   background: linear-gradient(90deg, #b49a68, #cbb27e);
   border-radius: inherit;
-  transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  transition: width 0.5s cubic-bezier(.4, 0, .2, 1);
 }
 
 .steps {
@@ -1367,6 +1859,210 @@ const finalizarCompra = () => {
   font-size: 0.65rem;
 }
 
+.payment-details {
+  margin-top: 14px;
+  padding: 15px;
+  border: 1px solid #ebe6dc;
+  border-radius: 16px;
+  background: #fbfaf7;
+}
+
+.payment-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.payment-detail-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.payment-detail-row span {
+  color: #9a9b95;
+  font-size: 0.63rem;
+}
+
+.payment-detail-row strong {
+  color: #3d4139;
+  font-size: 0.78rem;
+}
+
+.interest-value {
+  text-align: right;
+}
+
+.interest-value strong {
+  color: #a66e51;
+}
+
+.interest-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 13px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #f7eee8;
+}
+
+.interest-message > span {
+  color: #a66e51;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+
+.interest-message strong {
+  display: block;
+  color: #80533d;
+  font-size: 0.67rem;
+}
+
+.interest-message p {
+  margin: 3px 0 0;
+  color: #9a8175;
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.interest-message.no-interest {
+  background: #eef3ea;
+}
+
+.interest-message.no-interest > span {
+  color: #61775a;
+}
+
+.interest-message.no-interest strong {
+  color: #566950;
+}
+
+.interest-message.no-interest p {
+  color: #7d8878;
+}
+
+.installment-summary {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 17px;
+  border: 1px solid #e8e1d4;
+  background: #faf7f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.installment-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.installment-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #f0eadc;
+  color: #a38651;
+  font-size: 1rem;
+}
+
+.installment-main > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.installment-main span:not(.installment-icon) {
+  color: #999a94;
+  font-size: 0.63rem;
+}
+
+.installment-main strong {
+  color: #3c4038;
+  font-size: 0.82rem;
+}
+
+.installment-total {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  text-align: right;
+}
+
+.installment-total > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.installment-total span {
+  color: #999a94;
+  font-size: 0.61rem;
+}
+
+.installment-total strong {
+  color: #3f433b;
+  font-size: 0.76rem;
+}
+
+.installment-total.has-interest strong {
+  color: #a66e51;
+}
+
+.pix-summary {
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 17px;
+  background: #f1f5ed;
+  border: 1px solid #e0e8db;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.pix-summary-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: white;
+  color: #61775a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+}
+
+.pix-summary > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pix-summary span {
+  color: #7e8978;
+  font-size: 0.64rem;
+}
+
+.pix-summary strong {
+  color: #43503f;
+  font-size: 0.9rem;
+}
+
+.pix-summary small {
+  color: #81907b;
+  font-size: 0.61rem;
+}
+
 .navigation {
   display: flex;
   justify-content: space-between;
@@ -1685,15 +2381,47 @@ const finalizarCompra = () => {
   padding-top: 20px;
 }
 
+.aside-total > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .aside-total span {
   color: rgba(255, 255, 255, 0.65);
   font-size: 0.73rem;
+}
+
+.aside-total small {
+  color: rgba(255, 255, 255, 0.43);
+  font-size: 0.61rem;
 }
 
 .aside-total strong {
   color: #d9c18e;
   font-family: Georgia, serif;
   font-size: 1.45rem;
+}
+
+.aside-interest {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 11px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(166, 110, 81, 0.13);
+}
+
+.aside-interest span {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.62rem;
+}
+
+.aside-interest strong {
+  color: #d5a08a;
+  font-size: 0.65rem;
 }
 
 .aside-note {
@@ -1860,6 +2588,33 @@ const finalizarCompra = () => {
     height: 50px;
   }
 
+  .payment-detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .interest-value {
+    text-align: left;
+  }
+
+  .installment-summary {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+
+  .installment-total {
+    justify-content: space-between;
+    align-items: flex-start;
+    text-align: left;
+    padding-top: 12px;
+    border-top: 1px solid #e7dfd0;
+  }
+
+  .pix-summary {
+    align-items: flex-start;
+  }
+
   .navigation {
     flex-direction: column-reverse;
   }
@@ -1873,14 +2628,15 @@ const finalizarCompra = () => {
 
   .summary-content {
     grid-template-columns: 1fr;
-  }
-
-  .summary-content {
     gap: 10px;
   }
 
   .confirmation-heading h2 {
     font-size: 1.45rem;
+  }
+
+  .aside-interest {
+    padding: 9px;
   }
 }
 
@@ -1899,6 +2655,24 @@ const finalizarCompra = () => {
 
   .aside-card {
     padding: 19px;
+  }
+
+  .payment-card {
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .payment-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .installment-summary {
+    padding: 13px;
+  }
+
+  .installment-total {
+    gap: 12px;
   }
 }
 </style>
