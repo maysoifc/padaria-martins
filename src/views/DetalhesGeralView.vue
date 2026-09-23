@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const router = useRouter();
@@ -7,6 +7,8 @@ const route = useRoute();
 
 const grupo = computed(() => route.params.grupo);
 const tipoAtual = computed(() => route.params.tipo);
+
+const cupons = ref([]);
 
 const configuracoes = {
   pedidos: {
@@ -61,24 +63,87 @@ const configuracoes = {
 };
 
 const dadosAtuais = computed(() => {
-  return configuracoes[grupo.value] || configuracoes.pedidos;
+  return (
+    configuracoes[grupo.value] ||
+    configuracoes.pedidos
+  );
 });
 
 const abaAtual = computed(() => {
   return (
     dadosAtuais.value.abas.find(
       aba => aba.id === tipoAtual.value
-    ) || dadosAtuais.value.abas[0]
+    ) ||
+    dadosAtuais.value.abas[0]
   );
 });
 
+const ehCupons = computed(() => {
+  return (
+    grupo.value === 'carteira' &&
+    tipoAtual.value === 'cupons'
+  );
+});
+
+const carregarCupons = () => {
+  try {
+    const salvo = localStorage.getItem('cuponsCarteira');
+
+    if (!salvo) {
+      cupons.value = [];
+      return;
+    }
+
+    const dados = JSON.parse(salvo);
+
+    cupons.value = Array.isArray(dados)
+      ? dados
+      : [];
+  } catch (error) {
+    console.error('Erro ao carregar cupons:', error);
+    cupons.value = [];
+  }
+};
+
+const formatarData = (data) => {
+  if (!data) {
+    return '';
+  }
+
+  const dataObj = new Date(data);
+
+  if (Number.isNaN(dataObj.getTime())) {
+    return '';
+  }
+
+  return dataObj.toLocaleDateString('pt-BR');
+};
+
 const mudarAba = (id) => {
-  router.push(`/detalhes/${grupo.value}/${id}`);
+  if (
+    grupo.value === 'carteira' &&
+    id === 'selos'
+  ) {
+    router.push('/carteira/selos');
+    return;
+  }
+
+  router.push(
+    `/detalhes/${grupo.value}/${id}`
+  );
 };
 
 const voltar = () => {
   router.push('/perfil');
 };
+
+const irParaSelos = () => {
+  router.push('/carteira/selos');
+};
+
+onMounted(() => {
+  carregarCupons();
+});
 </script>
 
 <template>
@@ -106,7 +171,11 @@ const voltar = () => {
         <div class="header-copy">
 
           <span class="eyebrow">
-            {{ grupo === 'carteira' ? 'MINHA CARTEIRA' : 'MINHA CONTA' }}
+            {{
+              grupo === 'carteira'
+                ? 'MINHA CARTEIRA'
+                : 'MINHA CONTA'
+            }}
           </span>
 
           <h1>
@@ -120,25 +189,48 @@ const voltar = () => {
         </div>
 
         <div class="header-decoration">
+
           <span></span>
-          <i :class="`fa-solid ${abaAtual.icone}`"></i>
+
+          <i
+            :class="`fa-solid ${abaAtual.icone}`"
+          ></i>
+
         </div>
 
       </header>
 
+
       <section class="abas-section">
 
         <div class="section-heading">
+
           <div>
-            <span>EXPLORE</span>
-            <h2>Escolha uma categoria</h2>
+
+            <span>
+              EXPLORE
+            </span>
+
+            <h2>
+              Escolha uma categoria
+            </h2>
+
           </div>
 
           <div class="contador">
-            <strong>{{ dadosAtuais.abas.length }}</strong>
-            <span>opções</span>
+
+            <strong>
+              {{ dadosAtuais.abas.length }}
+            </strong>
+
+            <span>
+              opções
+            </span>
+
           </div>
+
         </div>
+
 
         <div class="abas-container">
 
@@ -147,21 +239,39 @@ const voltar = () => {
             :key="aba.id"
             type="button"
             class="aba"
-            :class="{ ativa: tipoAtual === aba.id }"
+            :class="{
+              ativa:
+                tipoAtual === aba.id
+            }"
             @click="mudarAba(aba.id)"
           >
 
             <span class="aba-icone">
-              <i :class="`fa-solid ${aba.icone}`"></i>
+
+              <i
+                :class="`fa-solid ${aba.icone}`"
+              ></i>
+
             </span>
 
             <span class="aba-texto">
-              <strong>{{ aba.nome }}</strong>
-              <small>{{ aba.descricao }}</small>
+
+              <strong>
+                {{ aba.nome }}
+              </strong>
+
+              <small>
+                {{ aba.descricao }}
+              </small>
+
             </span>
 
             <span class="aba-seta">
-              <i class="fa-solid fa-arrow-right"></i>
+
+              <i
+                class="fa-solid fa-arrow-right"
+              ></i>
+
             </span>
 
           </button>
@@ -169,6 +279,7 @@ const voltar = () => {
         </div>
 
       </section>
+
 
       <section class="conteudo-card">
 
@@ -177,76 +288,360 @@ const voltar = () => {
           <div class="conteudo-identidade">
 
             <div class="icone-conteudo">
-              <i :class="`fa-solid ${abaAtual.icone}`"></i>
+
+              <i
+                :class="`fa-solid ${abaAtual.icone}`"
+              ></i>
+
             </div>
 
             <div>
-              <span>SEÇÃO ATUAL</span>
-              <h2>{{ abaAtual.nome }}</h2>
+
+              <span>
+                SEÇÃO ATUAL
+              </span>
+
+              <h2>
+                {{ abaAtual.nome }}
+              </h2>
+
             </div>
 
           </div>
 
-          <span class="status-pill">
-            <i class="fa-solid fa-circle"></i>
+
+          <span
+            v-if="ehCupons"
+            class="status-pill ativo"
+          >
+
+            <i
+              class="fa-solid fa-circle"
+            ></i>
+
+            {{ cupons.length }}
+            {{
+              cupons.length === 1
+                ? 'disponível'
+                : 'disponíveis'
+            }}
+
+          </span>
+
+
+          <span
+            v-else
+            class="status-pill"
+          >
+
+            <i
+              class="fa-solid fa-circle"
+            ></i>
+
             Em breve
+
           </span>
 
         </div>
 
-        <div class="placeholder">
 
-          <div class="placeholder-ilustracao">
+        <!-- ========================= -->
+        <!-- CUPONS -->
+        <!-- ========================= -->
 
-            <div class="placeholder-circulo">
-              <i :class="`fa-solid ${abaAtual.icone}`"></i>
+        <div
+          v-if="ehCupons"
+          class="cupons-content"
+        >
+
+          <div
+            v-if="cupons.length > 0"
+            class="cupons-intro"
+          >
+
+            <div class="cupons-intro-icone">
+
+              <i
+                class="fa-solid fa-gift"
+              ></i>
+
             </div>
 
-            <span class="decor decor-one"></span>
-            <span class="decor decor-two"></span>
-            <span class="decor decor-three"></span>
+            <div>
+
+              <span>
+                SUAS RECOMPENSAS
+              </span>
+
+              <h3>
+                Prêmios disponíveis
+              </h3>
+
+              <p>
+                Essas são as recompensas que você
+                desbloqueou através dos seus selos.
+              </p>
+
+            </div>
 
           </div>
 
+
+          <div
+            v-if="cupons.length > 0"
+            class="cupons-lista"
+          >
+
+            <article
+              v-for="cupom in cupons"
+              :key="cupom.codigo"
+              class="cupom-card"
+            >
+
+              <div class="cupom-card-topo">
+
+                <div class="cupom-icone">
+
+                  <i
+                    :class="
+                      cupom.icone ||
+                      'fa-solid fa-ticket'
+                    "
+                  ></i>
+
+                </div>
+
+                <span class="cupom-status">
+                  DISPONÍVEL
+                </span>
+
+              </div>
+
+
+              <div class="cupom-info">
+
+                <span class="cupom-label">
+                  RECOMPENSA DOS SELOS
+                </span>
+
+                <h3>
+                  {{ cupom.titulo }}
+                </h3>
+
+                <p>
+                  {{ cupom.descricao }}
+                </p>
+
+              </div>
+
+
+              <div class="cupom-codigo">
+
+                <div>
+
+                  <span>
+                    CÓDIGO DO CUPOM
+                  </span>
+
+                  <strong>
+                    {{ cupom.codigo }}
+                  </strong>
+
+                </div>
+
+                <i
+                  class="fa-solid fa-ticket"
+                ></i>
+
+              </div>
+
+
+              <div
+                v-if="cupom.data"
+                class="cupom-data"
+              >
+
+                <i
+                  class="fa-regular fa-calendar"
+                ></i>
+
+                Recebido em
+                {{ formatarData(cupom.data) }}
+
+              </div>
+
+            </article>
+
+          </div>
+
+
+          <!-- ========================= -->
+          <!-- NENHUM CUPOM -->
+          <!-- ========================= -->
+
+          <div
+            v-else
+            class="cupons-vazio"
+          >
+
+            <div class="vazio-ilustracao">
+
+              <div class="vazio-circulo">
+
+                <i
+                  class="fa-solid fa-ticket"
+                ></i>
+
+              </div>
+
+              <span
+                class="vazio-ponto ponto-one"
+              ></span>
+
+              <span
+                class="vazio-ponto ponto-two"
+              ></span>
+
+              <span
+                class="vazio-ponto ponto-three"
+              ></span>
+
+            </div>
+
+
+            <span class="vazio-label">
+              SEUS CUPONS
+            </span>
+
+
+            <h3>
+              Ainda não há recompensas.
+            </h3>
+
+
+            <p>
+              Complete sua cartela com 10 selos
+              para desbloquear uma recompensa especial.
+            </p>
+
+
+            <button
+              type="button"
+              class="btn-ir-selos"
+              @click="irParaSelos"
+            >
+
+              <span>
+                Ver meus selos
+              </span>
+
+              <i
+                class="fa-solid fa-arrow-right"
+              ></i>
+
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================= -->
+        <!-- OUTRAS CATEGORIAS -->
+        <!-- ========================= -->
+
+        <div
+          v-else
+          class="placeholder"
+        >
+
+          <div class="placeholder-ilustracao">
+
+            <div
+              class="placeholder-circulo"
+            >
+
+              <i
+                :class="`fa-solid ${abaAtual.icone}`"
+              ></i>
+
+            </div>
+
+            <span
+              class="decor decor-one"
+            ></span>
+
+            <span
+              class="decor decor-two"
+            ></span>
+
+            <span
+              class="decor decor-three"
+            ></span>
+
+          </div>
+
+
           <span class="placeholder-label">
+
             {{ abaAtual.nome.toUpperCase() }}
+
           </span>
+
 
           <h3>
             Estamos preparando<br />
             algo especial.
           </h3>
 
+
           <p>
             Esta área ainda está sendo preparada.
             Em breve você poderá acompanhar tudo por aqui.
           </p>
+
 
           <button
             type="button"
             class="btn-voltar-perfil"
             @click="voltar"
           >
-            <span>Voltar ao meu perfil</span>
-            <i class="fa-solid fa-arrow-right"></i>
+
+            <span>
+              Voltar ao meu perfil
+            </span>
+
+            <i
+              class="fa-solid fa-arrow-right"
+            ></i>
+
           </button>
 
         </div>
 
       </section>
 
+
       <footer class="page-footer">
+
         <span class="linha"></span>
 
         <div>
-          <i class="fa-solid fa-heart"></i>
+
+          <i
+            class="fa-solid fa-heart"
+          ></i>
+
           Feito com carinho
+
         </div>
 
         <span class="linha"></span>
+
       </footer>
 
     </main>
+
   </div>
 </template>
 
@@ -342,7 +737,9 @@ const voltar = () => {
   border: 1px solid rgba(105, 76, 52, 0.12);
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.65);
-  box-shadow: 0 6px 18px rgba(63, 42, 27, 0.06);
+  box-shadow:
+    0 6px 18px
+    rgba(63, 42, 27, 0.06);
 }
 
 .header-copy {
@@ -352,7 +749,10 @@ const voltar = () => {
 .eyebrow,
 .section-heading > div > span,
 .conteudo-identidade span,
-.placeholder-label {
+.placeholder-label,
+.cupons-intro span,
+.cupom-label,
+.vazio-label {
   display: block;
   color: #a48452;
   font-size: 0.68rem;
@@ -457,21 +857,27 @@ const voltar = () => {
   text-align: left;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 8px 25px rgba(65, 45, 29, 0.035);
+  box-shadow:
+    0 8px 25px
+    rgba(65, 45, 29, 0.035);
   transition: 0.3s ease;
 }
 
 .aba:hover {
   transform: translateY(-3px);
   border-color: rgba(164, 132, 82, 0.25);
-  box-shadow: 0 14px 30px rgba(65, 45, 29, 0.08);
+  box-shadow:
+    0 14px 30px
+    rgba(65, 45, 29, 0.08);
 }
 
 .aba.ativa {
   border-color: rgba(164, 132, 82, 0.28);
   background: #fffdf9;
   color: #4b3526;
-  box-shadow: 0 14px 32px rgba(65, 45, 29, 0.09);
+  box-shadow:
+    0 14px 32px
+    rgba(65, 45, 29, 0.09);
 }
 
 .aba.ativa::before {
@@ -544,7 +950,9 @@ const voltar = () => {
   border: 1px solid rgba(89, 63, 42, 0.08);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 20px 55px rgba(63, 43, 28, 0.07);
+  box-shadow:
+    0 20px 55px
+    rgba(63, 43, 28, 0.07);
   backdrop-filter: blur(10px);
 }
 
@@ -592,9 +1000,321 @@ const voltar = () => {
   font-weight: 700;
 }
 
+.status-pill.ativo {
+  background: #f1eadf;
+  color: #80633e;
+}
+
 .status-pill i {
   font-size: 0.35rem;
   color: #c0a06c;
+}
+
+.cupons-content {
+  padding: 28px 24px 30px;
+}
+
+.cupons-intro {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.cupons-intro-icone {
+  display: grid;
+  flex: 0 0 50px;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border-radius: 16px;
+  background: #f4eee5;
+  color: #a38454;
+  font-size: 1.15rem;
+}
+
+.cupons-intro h3 {
+  margin: 5px 0 4px;
+  color: #463125;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem;
+}
+
+.cupons-intro p {
+  margin: 0;
+  color: #968475;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.cupons-lista {
+  display: grid;
+  gap: 14px;
+}
+
+.cupom-card {
+  position: relative;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(164, 132, 82, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(
+      135deg,
+      #fffdf9 0%,
+      #faf4e9 100%
+    );
+  box-shadow:
+    0 10px 28px
+    rgba(65, 45, 29, 0.06);
+}
+
+.cupom-card::before {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  top: -55px;
+  right: -35px;
+  border-radius: 50%;
+  background: rgba(190, 157, 98, 0.1);
+  content: '';
+}
+
+.cupom-card-topo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cupom-icone {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 14px;
+  background: #efe2ce;
+  color: #795a39;
+  font-size: 1rem;
+}
+
+.cupom-status {
+  padding: 6px 9px;
+  border-radius: 50px;
+  background: #f1eadf;
+  color: #8b704e;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.cupom-info {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+}
+
+.cupom-label {
+  font-size: 0.56rem;
+}
+
+.cupom-info h3 {
+  margin: 5px 0 5px;
+  color: #463125;
+  font-family: 'Playfair Display', serif;
+  font-size: 1.45rem;
+}
+
+.cupom-info p {
+  margin: 0;
+  color: #8f7c6b;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.cupom-codigo {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px dashed rgba(125, 94, 58, 0.22);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.cupom-codigo div {
+  min-width: 0;
+}
+
+.cupom-codigo span {
+  display: block;
+  margin-bottom: 4px;
+  color: #aa9479;
+  font-size: 0.53rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.cupom-codigo strong {
+  display: block;
+  overflow: hidden;
+  color: #65482f;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cupom-codigo > i {
+  color: #b49361;
+  font-size: 1rem;
+}
+
+.cupom-data {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+  color: #a18d79;
+  font-size: 0.62rem;
+}
+
+.cupom-data i {
+  font-size: 0.58rem;
+}
+
+.cupons-vazio {
+  position: relative;
+  display: flex;
+  min-height: 390px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  padding: 35px 20px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.cupons-vazio::before {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  background: rgba(194, 165, 112, 0.055);
+  content: '';
+  transform: translate(-50%, -50%);
+}
+
+.vazio-ilustracao {
+  position: relative;
+  width: 105px;
+  height: 105px;
+  margin-bottom: 20px;
+}
+
+.vazio-circulo {
+  position: absolute;
+  inset: 11px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(169, 137, 87, 0.18);
+  border-radius: 50%;
+  background: #fbf7f0;
+  color: #b29362;
+  box-shadow:
+    0 15px 30px
+    rgba(85, 59, 37, 0.07);
+}
+
+.vazio-circulo i {
+  font-size: 1.65rem;
+}
+
+.vazio-ponto {
+  position: absolute;
+  border-radius: 50%;
+  background: #d9c29b;
+}
+
+.ponto-one {
+  width: 7px;
+  height: 7px;
+  top: 6px;
+  right: 18px;
+}
+
+.ponto-two {
+  width: 10px;
+  height: 10px;
+  bottom: 8px;
+  left: 3px;
+  opacity: 0.55;
+}
+
+.ponto-three {
+  width: 5px;
+  height: 5px;
+  top: 30px;
+  left: 0;
+  opacity: 0.65;
+}
+
+.cupons-vazio h3 {
+  position: relative;
+  margin: 8px 0 12px;
+  color: #432f22;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(1.45rem, 5vw, 1.9rem);
+  line-height: 1.2;
+}
+
+.cupons-vazio p {
+  position: relative;
+  max-width: 350px;
+  margin: 0 0 23px;
+  color: #958374;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+.btn-ir-selos {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 18px;
+  border: 1px solid rgba(108, 78, 50, 0.1);
+  border-radius: 50px;
+  background: #4b3527;
+  color: #fffaf3;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow:
+    0 10px 25px
+    rgba(75, 53, 39, 0.18);
+  transition: 0.25s ease;
+}
+
+.btn-ir-selos:hover {
+  transform: translateY(-2px);
+  background: #39281e;
+}
+
+.btn-ir-selos i {
+  font-size: 0.68rem;
 }
 
 .placeholder {
@@ -637,7 +1357,9 @@ const voltar = () => {
   border-radius: 50%;
   background: #fbf7f0;
   color: #b29362;
-  box-shadow: 0 15px 30px rgba(85, 59, 37, 0.07);
+  box-shadow:
+    0 15px 30px
+    rgba(85, 59, 37, 0.07);
 }
 
 .placeholder-circulo i {
@@ -705,14 +1427,15 @@ const voltar = () => {
   font-size: 0.78rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 25px rgba(75, 53, 39, 0.18);
+  box-shadow:
+    0 10px 25px
+    rgba(75, 53, 39, 0.18);
   transition: 0.25s ease;
 }
 
 .btn-voltar-perfil:hover {
   transform: translateY(-2px);
   background: #39281e;
-  box-shadow: 0 14px 28px rgba(75, 53, 39, 0.22);
 }
 
 .btn-voltar-perfil i {
@@ -847,6 +1570,35 @@ const voltar = () => {
     font-size: 0.58rem;
   }
 
+  .cupons-content {
+    padding: 22px 18px 24px;
+  }
+
+  .cupons-intro {
+    align-items: flex-start;
+  }
+
+  .cupons-intro h3 {
+    font-size: 1.2rem;
+  }
+
+  .cupons-intro p {
+    font-size: 0.72rem;
+  }
+
+  .cupom-card {
+    padding: 16px;
+    border-radius: 19px;
+  }
+
+  .cupom-info h3 {
+    font-size: 1.3rem;
+  }
+
+  .cupom-info p {
+    font-size: 0.74rem;
+  }
+
   .placeholder {
     min-height: 390px;
     padding: 40px 20px;
@@ -885,6 +1637,20 @@ const voltar = () => {
 
   .status-pill {
     display: none;
+  }
+
+  .cupons-intro-icone {
+    flex-basis: 43px;
+    width: 43px;
+    height: 43px;
+  }
+
+  .cupons-intro h3 {
+    font-size: 1.08rem;
+  }
+
+  .cupom-codigo strong {
+    font-size: 0.64rem;
   }
 }
 </style>
