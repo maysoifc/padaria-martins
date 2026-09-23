@@ -78,10 +78,41 @@ const router = createRouter({
     },
 
     {
+      path: "/novamente",
+      name: "novamente",
+      component: () => import("../views/NovamenteView.vue"),
+      meta: { hideNav: true },
+    },
+
+    {
       path: "/produto/:id",
       name: "produto-detalhes",
       component: () => import("../components/ProdutosDetalhes.vue"),
       props: true,
+      meta: { hideNav: true },
+    },
+
+    {
+      path: "/detalhes/carteira/selos",
+      redirect: "/carteira/selos",
+    },
+
+    {
+      path: "/carteira/selos",
+      name: "carteira-selos",
+      component: () => import("../views/SelosCarteiraView.vue"),
+      meta: { hideNav: true },
+    },
+
+    {
+      path: "/detalhes/carteira/cartoes",
+      redirect: "/carteira/cartoes",
+    },
+
+    {
+      path: "/carteira/cartoes",
+      name: "carteira-cartoes",
+      component: () => import("../views/CartoesCarteiraView.vue"),
       meta: { hideNav: true },
     },
 
