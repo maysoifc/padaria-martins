@@ -207,6 +207,7 @@ const comprarNovamente = async () => {
   </button>
 </template>
 
+
 <style scoped>
 .comprar-novamente {
   width: 100%;
