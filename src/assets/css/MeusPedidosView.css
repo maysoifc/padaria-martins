@@ -1,0 +1,1204 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Imprima&display=swap");
+
+* {
+  box-sizing: border-box;
+}
+
+.pedidos-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  color: #38291f;
+  font-family: "DM Sans", sans-serif;
+  background:
+    radial-gradient(circle at 8% 10%, #b897641f, transparent 24%),
+    radial-gradient(circle at 94% 85%, #5e302312, transparent 25%),
+    #f8f4ed;
+}
+
+.pedidos-container {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 900px);
+  margin: 0 auto;
+  padding: 28px 20px 45px;
+}
+
+.ambient {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ambient-one {
+  top: -140px;
+  right: -110px;
+  width: 260px;
+  height: 260px;
+  background: #bfa26c1f;
+}
+
+.ambient-two {
+  bottom: -120px;
+  left: -110px;
+  width: 230px;
+  height: 230px;
+  background: #6c4d3112;
+}
+
+.pedidos-header {
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.btn-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #72563e;
+  font: 700 0.84rem "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.btn-voltar:hover {
+  color: #5e3023;
+  transform: translateX(-3px);
+}
+
+.voltar-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e5d9cb;
+  border-radius: 50%;
+  background: #ffffffb3;
+  box-shadow: 0 5px 16px #5e30230f;
+}
+
+.header-copy {
+  max-width: 650px;
+}
+
+.eyebrow {
+  display: block;
+  color: #a48452;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.header-copy h1 {
+  margin: 8px 0 7px;
+  color: #3a281d;
+  font: 400 clamp(2.2rem, 8vw, 3.7rem)/1 "Imprima", Georgia, serif;
+}
+
+.header-copy p {
+  margin: 0;
+  color: #8b796a;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.header-decoration {
+  position: absolute;
+  top: 75px;
+  right: 2%;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border: 1px solid #b8976433;
+  border-radius: 50%;
+  background: #fffdf999;
+  color: #b89764;
+}
+
+.header-decoration span {
+  position: absolute;
+  inset: 8px;
+  border: 1px dashed #b8976459;
+  border-radius: 50%;
+}
+
+.header-decoration i {
+  position: relative;
+  z-index: 1;
+  font-size: 19px;
+}
+
+/* Navegação */
+
+.abas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 18px;
+}
+
+.aba {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #eadfd3;
+  border-radius: 16px;
+  background: #fffdf9bf;
+  color: #72563e;
+  font-family: "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.aba:hover {
+  transform: translateY(-2px);
+  border-color: #d9c5a9;
+  box-shadow: 0 8px 20px #5e30230f;
+}
+
+.aba.ativa {
+  border-color: #d2b88e;
+  background: #fffaf3;
+  color: #5e3023;
+  box-shadow: 0 7px 20px #5e302314;
+}
+
+.aba-icone {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: #f3e8db;
+  color: #a17b4d;
+  font-size: 12px;
+}
+
+.aba.ativa .aba-icone {
+  background: #ead9c2;
+  color: #5e3023;
+}
+
+.aba-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.aba-texto strong {
+  overflow: hidden;
+  max-width: 100%;
+  font: 400 0.77rem "Imprima", Georgia, serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aba-texto small {
+  overflow: hidden;
+  max-width: 100%;
+  margin-top: 2px;
+  color: #a08e7d;
+  font-size: 0.48rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Conteúdo */
+
+.conteudo {
+  padding: 20px 16px 25px;
+  border: 1px solid #e8ddd0;
+  border-radius: 24px;
+  background: #fffdf9e0;
+  box-shadow: 0 12px 35px #5e30230f;
+}
+
+.conteudo-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.conteudo-identidade {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.icone-conteudo {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 43px;
+  height: 43px;
+  border-radius: 14px;
+  background: #f3e7d9;
+  color: #a47d4d;
+  font-size: 15px;
+}
+
+.conteudo-identidade span {
+  display: block;
+  color: #a48452;
+  font-size: 0.53rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.conteudo-identidade h2 {
+  margin: 3px 0 0;
+  color: #5e3023;
+  font: 400 1.25rem "Imprima", Georgia, serif;
+}
+
+.contador {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 10px;
+  background: #f4eadf;
+  color: #8a6849;
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.lista-produtos,
+.avaliacoes-lista {
+  display: grid;
+  gap: 12px;
+}
+
+.produto-card {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #eee3d8;
+  border-radius: 17px;
+  background: #fffdf9;
+  box-shadow: 0 5px 18px #5e30230b;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.produto-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 23px #5e302314;
+}
+
+.produto-imagem {
+  overflow: hidden;
+  flex-shrink: 0;
+  width: 82px;
+  height: 82px;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: #f3e7da;
+  cursor: pointer;
+}
+
+.produto-imagem img,
+.avaliacao-imagem img,
+.depoimento-imagem img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.produto-imagem span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  color: #b89764;
+  font-size: 20px;
+}
+
+.produto-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 2px 3px 2px 12px;
+}
+
+.produto-label,
+.avaliacao-label {
+  color: #b89764;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.produto-info h3,
+.avaliacao-info h3 {
+  overflow: hidden;
+  margin: 3px 0 4px;
+  color: #5e3023;
+  font: 400 0.95rem "Imprima", Georgia, serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.produto-preco {
+  color: #7b5a40;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.produto-acoes {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.btn-ver-produto {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: #f4eadf;
+  color: #725238;
+  font-size: 0.58rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-remover {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #eadbc9;
+  border-radius: 9px;
+  background: #fffaf5;
+  color: #a77d6b;
+  cursor: pointer;
+}
+
+.btn-remover:hover {
+  color: #8f5144;
+}
+
+/* Estados vazios e carregamento */
+
+.estado-vazio {
+  padding: 32px 18px;
+  text-align: center;
+}
+
+.estado-vazio.carregando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: #a48452;
+}
+
+.estado-vazio.carregando i {
+  font-size: 20px;
+}
+
+.estado-icone {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 14px;
+  border-radius: 19px;
+  background: #f3e8dc;
+  color: #b89764;
+  font-size: 22px;
+}
+
+.estado-vazio h3 {
+  margin: 0 0 7px;
+  color: #5e3023;
+  font: 400 1.15rem "Imprima", Georgia, serif;
+}
+
+.estado-vazio p {
+  max-width: 340px;
+  margin: 0 auto;
+  color: #9a8776;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.btn-acao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin-top: 17px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 11px;
+  background: #5e3023;
+  color: #fffaf4;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 7px 17px #5e302324;
+}
+
+/* Avaliações */
+
+.avaliacao-card {
+  padding: 13px;
+  border: 1px solid #eee3d8;
+  border-radius: 17px;
+  background: #fffdf9;
+}
+
+.avaliacao-produto {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.avaliacao-imagem {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  width: 62px;
+  height: 62px;
+  border-radius: 14px;
+  background: #f3e7da;
+  color: #b89764;
+}
+
+.avaliacao-info {
+  min-width: 0;
+}
+
+.avaliacao-info h3 {
+  margin: 3px 0 5px;
+}
+
+.estrelas-pequenas,
+.depoimento-estrelas {
+  display: flex;
+  gap: 3px;
+  color: #b89764;
+  font-size: 9px;
+}
+
+.estrelas-pequenas .vazia,
+.depoimento-estrelas .vazia {
+  color: #ded3c5;
+}
+
+.comentario {
+  margin: 14px 3px 12px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: #faf4ed;
+  color: #766456;
+  font-size: 0.7rem;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.btn-editar-avaliacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid #e8dccc;
+  border-radius: 9px;
+  background: #fffaf5;
+  color: #8a6849;
+  font-size: 0.57rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Depoimentos */
+
+.depoimentos {
+  width: 100%;
+  margin-top: 32px;
+  padding-top: 26px;
+}
+
+.depoimentos-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 17px;
+}
+
+.depoimentos-linha {
+  flex: 1;
+  height: 1px;
+  background: #e8dccd;
+}
+
+.depoimentos-titulo > div {
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.depoimentos-label {
+  display: block;
+  margin-bottom: 3px;
+  color: #b89764;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.depoimentos-titulo h3,
+.subtitulo-lista h3 {
+  margin: 3px 0 0;
+  color: #5e3023;
+  font: 400 1.05rem "Imprima", Georgia, serif;
+}
+
+.depoimento-card {
+  min-height: 205px;
+  padding: 18px;
+  overflow: hidden;
+  border: 1px solid #eadfd2;
+  border-radius: 21px;
+  background: linear-gradient(145deg, #fffdf9, #fbf5ed);
+  box-shadow: 0 9px 25px #5e302312;
+}
+
+.depoimento-conteudo {
+  width: 100%;
+}
+
+.depoimento-produto {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.depoimento-imagem {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  width: 53px;
+  height: 53px;
+  border-radius: 14px;
+  background: #f1e5d8;
+  color: #b89764;
+}
+
+.depoimento-produto-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.depoimento-produto-info span {
+  color: #b89764;
+  font-size: 0.48rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.depoimento-produto-info strong {
+  overflow: hidden;
+  max-width: 220px;
+  margin-top: 2px;
+  color: #5e3023;
+  font: 400 0.92rem "Imprima", Georgia, serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.depoimento-estrelas {
+  margin-top: 5px;
+  font-size: 8px;
+}
+
+.depoimento-texto {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 21px;
+  padding: 0 4px;
+}
+
+.depoimento-texto > i {
+  flex-shrink: 0;
+  color: #d7c19e;
+  font-size: 9px;
+}
+
+.depoimento-texto > i:last-child {
+  align-self: flex-end;
+}
+
+.depoimento-texto p {
+  flex: 1;
+  margin: 0;
+  color: #6f5b4d;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.depoimentos-indicadores {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 13px;
+}
+
+.depoimentos-indicadores button {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ddcfbf;
+  cursor: pointer;
+  transition: width 0.25s, background 0.25s;
+}
+
+.depoimentos-indicadores button.ativo {
+  width: 18px;
+  border-radius: 10px;
+  background: #b89764;
+}
+
+.avaliacao-fade-enter-active,
+.avaliacao-fade-leave-active {
+  transition: opacity 0.35s, transform 0.35s;
+}
+
+.avaliacao-fade-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.avaliacao-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Pedidos preparados e histórico */
+
+.preparados-conteudo {
+  display: grid;
+  gap: 28px;
+}
+
+.subtitulo-lista {
+  margin-bottom: 13px;
+}
+
+.subtitulo-lista > span,
+.pedido-label {
+  color: #a48452;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.btn-avaliar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: auto;
+  padding: 7px 8px;
+  border: 1px solid #e5d6c4;
+  border-radius: 9px;
+  background: #fffaf4;
+  color: #8a6849;
+  font-size: 0.55rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-avaliar i {
+  color: #b89764;
+}
+
+.historico-pedidos {
+  padding-top: 4px;
+}
+
+.pedido-historico {
+  margin-bottom: 11px;
+  padding: 14px;
+  border: 1px solid #eee3d8;
+  border-radius: 16px;
+  background: #fffdf9;
+}
+
+.pedido-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #eee4da;
+}
+
+.pedido-label {
+  display: block;
+  font-size: 0.46rem;
+}
+
+.pedido-topo strong {
+  display: block;
+  margin-top: 2px;
+  color: #5e3023;
+  font: 400 0.82rem "Imprima", Georgia, serif;
+}
+
+.pedido-data {
+  color: #9a8776;
+  font-size: 0.56rem;
+}
+
+.pedido-itens {
+  padding: 10px 0;
+}
+
+.pedido-item {
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto;
+  gap: 6px;
+  padding: 5px 0;
+  font-size: 0.62rem;
+}
+
+.pedido-item > span {
+  color: #b89764;
+  font-weight: 700;
+}
+
+.pedido-item strong {
+  overflow: hidden;
+  color: #6d5748;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pedido-item small {
+  color: #8b715e;
+  font-weight: 700;
+}
+
+.pedido-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid #eee4da;
+  color: #8b796a;
+  font-size: 0.6rem;
+}
+
+.pedido-total strong {
+  color: #5e3023;
+  font-size: 0.75rem;
+}
+
+/* Modal de avaliação */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: #3220166b;
+  backdrop-filter: blur(5px);
+}
+
+.modal-avaliacao {
+  position: relative;
+  width: min(100%, 390px);
+  padding: 27px 21px 21px;
+  border: 1px solid #eadfd2;
+  border-radius: 23px;
+  background: #fffdf9;
+  box-shadow: 0 20px 55px #32201633;
+  text-align: center;
+}
+
+.modal-fechar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: #f5eadf;
+  color: #806653;
+  cursor: pointer;
+}
+
+.modal-icone {
+  display: grid;
+  place-items: center;
+  width: 49px;
+  height: 49px;
+  margin: 0 auto 11px;
+  border-radius: 15px;
+  background: #f1e4d4;
+  color: #b89764;
+  font-size: 17px;
+}
+
+.modal-label {
+  color: #b89764;
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.modal-avaliacao h2 {
+  margin: 5px 0;
+  color: #5e3023;
+  font: 400 1.35rem "Imprima", Georgia, serif;
+}
+
+.modal-descricao {
+  margin: 0;
+  color: #968475;
+  font-size: 0.68rem;
+}
+
+.estrelas-modal {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 19px 0;
+}
+
+.estrelas-modal button {
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: #ddd1c1;
+  font-size: 20px;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.estrelas-modal button.selecionada {
+  transform: scale(1.08);
+  color: #b89764;
+}
+
+.campo-comentario {
+  width: 100%;
+  min-height: 105px;
+  padding: 12px;
+  resize: vertical;
+  border: 1px solid #e5d9cd;
+  border-radius: 13px;
+  outline: none;
+  background: #fffaf5;
+  color: #5e3023;
+  font: 0.7rem/1.5 "DM Sans", sans-serif;
+}
+
+.campo-comentario:focus {
+  border-color: #cdb38d;
+}
+
+.contador-caracteres {
+  display: block;
+  margin-top: 4px;
+  color: #ae9b89;
+  font-size: 0.48rem;
+  text-align: right;
+}
+
+.btn-salvar-avaliacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 13px;
+  padding: 11px;
+  border: 0;
+  border-radius: 11px;
+  background: #5e3023;
+  color: #fffaf4;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.btn-salvar-avaliacao:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-salvar-avaliacao:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from .modal-avaliacao,
+.modal-leave-to .modal-avaliacao {
+  transform: translateY(12px) scale(0.97);
+}
+
+/* Responsividade */
+
+@media (min-width: 600px) {
+  .pedidos-container {
+    padding: 38px 28px 55px;
+  }
+
+  .abas {
+    gap: 12px;
+  }
+
+  .aba {
+    padding: 11px;
+  }
+
+  .aba-icone {
+    width: 40px;
+    height: 40px;
+  }
+
+  .aba-texto strong {
+    font-size: 0.85rem;
+  }
+
+  .aba-texto small {
+    font-size: 0.54rem;
+  }
+
+  .conteudo {
+    padding: 25px 23px 30px;
+  }
+
+  .lista-produtos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .depoimento-card {
+    min-height: 190px;
+  }
+}
+
+@media (max-width: 500px) {
+  .header-decoration {
+    top: 74px;
+    right: 0;
+    width: 58px;
+    height: 58px;
+  }
+
+  .header-decoration i {
+    font-size: 15px;
+  }
+
+  .header-copy {
+    padding-right: 42px;
+  }
+
+  .abas {
+    gap: 6px;
+  }
+
+  .aba {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 9px 4px;
+    border-radius: 13px;
+  }
+
+  .aba-icone {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 10px;
+  }
+
+  .aba-texto {
+    align-items: center;
+    max-width: 100%;
+  }
+
+  .aba-texto strong {
+    font-size: 0.69rem;
+  }
+
+  .aba-texto small {
+    display: none;
+  }
+
+  .conteudo {
+    padding: 17px 12px 22px;
+    border-radius: 20px;
+  }
+
+  .conteudo-topo {
+    gap: 8px;
+  }
+
+  .icone-conteudo {
+    width: 38px;
+    height: 38px;
+  }
+
+  .conteudo-identidade h2 {
+    font-size: 1.12rem;
+  }
+
+  .produto-imagem {
+    width: 70px;
+    height: 70px;
+  }
+
+  .produto-info {
+    padding-left: 9px;
+  }
+
+  .produto-info h3 {
+    font-size: 0.85rem;
+  }
+
+  .depoimentos {
+    margin-top: 26px;
+    padding-top: 21px;
+  }
+
+  .depoimentos-titulo {
+    gap: 7px;
+  }
+
+  .depoimentos-label {
+    font-size: 0.43rem;
+  }
+
+  .depoimentos-titulo h3 {
+    font-size: 0.95rem;
+  }
+
+  .depoimento-card {
+    min-height: 190px;
+    padding: 15px;
+    border-radius: 18px;
+  }
+
+  .depoimento-imagem {
+    width: 47px;
+    height: 47px;
+  }
+
+  .depoimento-produto-info strong {
+    max-width: 180px;
+    font-size: 0.84rem;
+  }
+
+  .depoimento-texto {
+    margin-top: 18px;
+  }
+
+  .depoimento-texto p {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 370px) {
+  .pedidos-container {
+    padding: 22px 13px 35px;
+  }
+
+  .header-decoration {
+    top: 67px;
+    width: 48px;
+    height: 48px;
+  }
+
+  .header-copy {
+    padding-right: 35px;
+  }
+
+  .aba {
+    gap: 5px;
+    padding: 7px 4px;
+  }
+
+  .aba-texto strong {
+    font-size: 0.65rem;
+  }
+
+  .conteudo {
+    padding: 15px 9px 20px;
+  }
+
+  .produto-imagem {
+    width: 64px;
+    height: 64px;
+  }
+
+  .produto-info {
+    padding-left: 8px;
+  }
+
+  .depoimentos-titulo {
+    gap: 5px;
+  }
+
+  .depoimentos-label {
+    font-size: 0.4rem;
+  }
+
+  .depoimento-card {
+    padding: 13px;
+  }
+}
