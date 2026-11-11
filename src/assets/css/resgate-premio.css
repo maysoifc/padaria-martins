@@ -1,0 +1,188 @@
+.resgate-premio {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #4b3027;
+  font-family: inherit;
+}
+.resgate-premio__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.resgate-premio__icone-cabecalho {
+  display: grid;
+  place-items: center;
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  border-radius: 17px;
+  background: #f2e5d5;
+  color: #6b3929;
+  font-size: 23px;
+}
+.resgate-premio__sobretitulo {
+  margin: 0 0 4px;
+  color: #9a795e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.resgate-premio__cabecalho h2 {
+  margin: 0;
+  font-size: clamp(22px, 5vw, 28px);
+  line-height: 1.2;
+}
+.resgate-premio__introducao {
+  margin: 6px 0 0;
+  color: #80695b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.resgate-premio__cartao {
+  position: relative;
+  overflow: hidden;
+  padding: 28px 22px 24px;
+  border: 1px solid #ead9c5;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #fffdf9 0%, #f8eee2 100%);
+  box-shadow: 0 12px 28px rgb(76 47 31 / 9%);
+  text-align: center;
+}
+.resgate-premio__cartao::before,
+.resgate-premio__cartao::after {
+  position: absolute;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #ead9c5;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+  transform: translateY(-50%);
+}
+.resgate-premio__cartao::before { left: -12px; }
+.resgate-premio__cartao::after { right: -12px; }
+.resgate-premio__icone-premio {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #5e3023;
+  color: #fff5e8;
+  font-size: 31px;
+  box-shadow: 0 8px 18px rgb(94 48 35 / 20%);
+}
+.resgate-premio__etiqueta {
+  display: inline-block;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: #ead8c2;
+  color: #6a4533;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.resgate-premio__cartao h3 {
+  margin: 14px 0 8px;
+  color: #5e3023;
+  font-size: clamp(23px, 5vw, 30px);
+  line-height: 1.2;
+}
+.resgate-premio__descricao {
+  margin: 0 auto;
+  max-width: 340px;
+  color: #7a6254;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.resgate-premio__cupom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 23px 0 18px;
+  padding: 17px 12px;
+  border: 1px dashed #b99b7c;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 62%);
+}
+.resgate-premio__cupom span {
+  color: #927761;
+  font-size: 12px;
+}
+.resgate-premio__cupom strong {
+  color: #5e3023;
+  font-size: clamp(16px, 4vw, 20px);
+  letter-spacing: .07em;
+  overflow-wrap: anywhere;
+}
+.resgate-premio__copiar {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #f1e5d8;
+  color: #6a4533;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.resgate-premio__botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 13px;
+  background: #5e3023;
+  color: #fffaf4;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease, opacity .2s ease;
+}
+.resgate-premio__botao:hover:not(:disabled) {
+  background: #77432f;
+  transform: translateY(-1px);
+}
+.resgate-premio__botao:disabled {
+  cursor: default;
+  opacity: .72;
+}
+.resgate-premio__sucesso,
+.resgate-premio__erro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 15px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.resgate-premio__sucesso { color: #36734b; }
+.resgate-premio__erro { color: #a33232; }
+.resgate-premio__carregando {
+  padding: 30px 12px;
+  color: #80695b;
+  text-align: center;
+}
+@media (max-width: 480px) {
+  .resgate-premio { padding: 16px; }
+  .resgate-premio__cartao { padding: 24px 17px 19px; border-radius: 20px; }
+  .resgate-premio__cabecalho { gap: 12px; }
+  .resgate-premio__icone-cabecalho { flex-basis: 46px; width: 46px; height: 46px; border-radius: 14px; }
+}
