@@ -1,9 +1,13 @@
+
 import { createRouter, createWebHistory } from "vue-router";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
 
   routes: [
+    // =========================================
+    // AUTENTICAÇÃO
+    // =========================================
     {
       path: "/",
       name: "login",
@@ -16,6 +20,10 @@ const router = createRouter({
       component: () => import("../views/CadastroView.vue"),
       meta: { hideNav: true },
     },
+
+    // =========================================
+    // PÁGINAS PRINCIPAIS
+    // =========================================
     {
       path: "/home",
       name: "home",
@@ -43,6 +51,10 @@ const router = createRouter({
       component: () => import("@/views/CheckoutCarrinho.vue"),
       meta: { hideNav: true },
     },
+
+    // =========================================
+    // ENCOMENDAS
+    // =========================================
     {
       path: "/encomenda",
       name: "encomenda",
@@ -72,6 +84,10 @@ const router = createRouter({
       component: () => import("../views/NovamenteView.vue"),
       meta: { hideNav: true },
     },
+
+    // =========================================
+    // PRODUTOS
+    // =========================================
     {
       path: "/produto/:id",
       name: "produto-detalhes",
@@ -79,6 +95,10 @@ const router = createRouter({
       props: true,
       meta: { hideNav: true },
     },
+
+    // =========================================
+    // CARTEIRA
+    // =========================================
     {
       path: "/detalhes/carteira/selos",
       redirect: "/carteira/selos",
@@ -106,7 +126,9 @@ const router = createRouter({
       props: true,
     },
 
+    // =========================================
     // LOGIN ADMINISTRATIVO
+    // =========================================
     {
       path: "/admin/login",
       name: "AdminLogin",
@@ -117,7 +139,9 @@ const router = createRouter({
       },
     },
 
+    // =========================================
     // PAINEL ADMINISTRATIVO
+    // =========================================
     {
       path: "/admin",
       component: () => import("../components/admin/AdminLayout.vue"),
@@ -141,17 +165,21 @@ const router = createRouter({
         {
           path: "encomendas",
           name: "AdminEncomendas",
-          component: () => import("../views/admin/AdminEncomendasView.vue"),
+          component: () =>
+            import("../views/admin/AdminEncomendasView.vue"),
         },
-         {
-            path: "usuarios",
-            name: "AdminUsuarios",
-            component: () => import("../views/admin/AdminUsuariosView.vue"),
+        {
+          path: "usuarios",
+          name: "AdminUsuarios",
+          component: () =>
+            import("../views/admin/AdminUsuariosView.vue"),
         },
       ],
     },
 
+    // =========================================
     // ROTA NÃO ENCONTRADA
+    // =========================================
     {
       path: "/:pathMatch(.*)*",
       name: "not-found",
@@ -160,7 +188,9 @@ const router = createRouter({
   ],
 });
 
+// =========================================
 // PROTEÇÃO DAS ROTAS ADMINISTRATIVAS
+// =========================================
 router.beforeEach((to) => {
   const adminToken = localStorage.getItem("adminToken");
 
@@ -172,10 +202,12 @@ router.beforeEach((to) => {
     (record) => record.meta.guestAdmin
   );
 
+  // Impede acesso ao painel sem token administrativo
   if (exigeAdmin && !adminToken) {
     return { name: "AdminLogin" };
   }
 
+  // Impede que um administrador autenticado volte ao login
   if (exigeVisitante && adminToken) {
     return { name: "AdminDashboard" };
   }
