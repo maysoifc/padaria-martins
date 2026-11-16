@@ -1,3 +1,4 @@
+
 <script setup>
 import { computed, onMounted, ref } from "vue";
 
@@ -13,6 +14,10 @@ const imagensLocais = import.meta.glob("../../assets/img/*", {
   import: "default"
 });
 
+/* =====================================================
+   ESTADOS
+===================================================== */
+
 const produtos = ref([]);
 const categorias = ref([]);
 
@@ -25,6 +30,8 @@ const produtoEditando = ref(null);
 
 const carregando = ref(false);
 const salvando = ref(false);
+const excluindo = ref(false);
+
 const erro = ref("");
 const mensagem = ref("");
 const confirmacaoExclusao = ref(null);
@@ -32,6 +39,7 @@ const confirmacaoExclusao = ref(null);
 const formulario = ref({
   nome: "",
   preco: "",
+  desconto: "0",
   imagem: "",
   ingredientes_base: "",
   ingredientes_creme: "",
@@ -39,7 +47,96 @@ const formulario = ref({
   categorias: []
 });
 
+/* =====================================================
+   AUTENTICAÇÃO E REQUISIÇÕES
+===================================================== */
+
 const token = () => localStorage.getItem("adminToken");
+
+const requisicao = async (caminho, opcoes = {}) => {
+  const cabecalhos = {
+    ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
+    ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+    ...opcoes.headers
+  };
+
+  let resposta;
+
+  try {
+    resposta = await fetch(`${API_URL}${caminho}`, {
+      ...opcoes,
+      headers: cabecalhos
+    });
+  } catch {
+    throw new Error(
+      "Não foi possível conectar ao servidor. Verifique se o Django está funcionando."
+    );
+  }
+
+  if (resposta.status === 204) return null;
+
+  const tipo = resposta.headers.get("content-type") || "";
+  let dados = null;
+
+  try {
+    dados = tipo.includes("application/json")
+      ? await resposta.json()
+      : await resposta.text();
+  } catch {
+    dados = null;
+  }
+
+  if (!resposta.ok) {
+    if (resposta.status === 401) {
+      throw new Error(
+        "Sua sessão administrativa expirou ou o token é inválido. Faça login novamente."
+      );
+    }
+
+    if (resposta.status === 403) {
+      throw new Error(
+        "Você não tem permissão para realizar esta operação. Verifique seu acesso administrativo."
+      );
+    }
+
+    if (resposta.status === 404) {
+      throw new Error(
+        "O endereço solicitado não foi encontrado. Verifique as URLs da API no Django."
+      );
+    }
+
+    if (resposta.status === 409) {
+      throw new Error(
+        dados?.erro ||
+        dados?.detail ||
+        "Este produto está vinculado a compras anteriores e não pode ser excluído."
+      );
+    }
+
+    const detalhe =
+      typeof dados === "object" && dados !== null
+        ? Object.entries(dados)
+            .map(([campo, valor]) => {
+              const texto = Array.isArray(valor)
+                ? valor.join(", ")
+                : typeof valor === "object" && valor !== null
+                  ? JSON.stringify(valor)
+                  : String(valor);
+
+              return `${campo}: ${texto}`;
+            })
+            .join(" | ")
+        : String(dados || "Não foi possível concluir a operação.");
+
+    throw new Error(detalhe);
+  }
+
+  return dados;
+};
+
+/* =====================================================
+   UTILITÁRIOS
+===================================================== */
 
 const formatarPreco = (valor) => {
   return Number(valor || 0).toLocaleString("pt-BR", {
@@ -48,11 +145,48 @@ const formatarPreco = (valor) => {
   });
 };
 
+const normalizarLista = (dados) => {
+  if (Array.isArray(dados)) return dados;
+  if (Array.isArray(dados?.results)) return dados.results;
+  if (Array.isArray(dados?.data)) return dados.data;
+  return [];
+};
+
+const converterPreco = (valor) => {
+  let texto = String(valor ?? "").trim().replace(/\s/g, "");
+
+  if (!texto) return NaN;
+
+  if (texto.includes(",")) {
+    texto = texto.replace(/\./g, "").replace(",", ".");
+  }
+
+  return Number(texto);
+};
+
+const calcularPrecoComDesconto = (produto) => {
+  const preco = Number(produto?.preco || 0);
+  const desconto = Number(produto?.desconto || 0);
+
+  if (!Number.isFinite(preco) || !Number.isFinite(desconto)) {
+    return 0;
+  }
+
+  return preco * (1 - desconto / 100);
+};
+
+const possuiDesconto = (produto) => {
+  return Number(produto?.desconto || 0) > 0;
+};
+
+/* =====================================================
+   IMAGENS
+===================================================== */
+
 const getImageUrl = (imagem) => {
   if (!imagem || typeof imagem !== "string") return "";
 
   const caminho = imagem.trim();
-
   if (!caminho) return "";
 
   if (/^(https?:\/\/|data:|blob:)/i.test(caminho)) {
@@ -60,7 +194,6 @@ const getImageUrl = (imagem) => {
   }
 
   const nomeArquivo = caminho.split("/").pop()?.split("?")[0];
-
   if (!nomeArquivo) return "";
 
   const imagemLocal = Object.entries(imagensLocais).find(([arquivo]) => {
@@ -89,64 +222,41 @@ const imagemComErro = (event) => {
   event.target.parentElement?.classList.add("sem-imagem");
 };
 
-const normalizarLista = (dados) => {
-  if (Array.isArray(dados)) return dados;
-  if (Array.isArray(dados?.results)) return dados.results;
-  if (Array.isArray(dados?.data)) return dados.data;
-  return [];
+const imagemCarregada = (event) => {
+  event.target.style.display = "block";
+  event.target.parentElement?.classList.remove("sem-imagem");
 };
 
-const requisicao = async (caminho, opcoes = {}) => {
-  const cabecalhos = {
-    ...(opcoes.body ? { "Content-Type": "application/json" } : {}),
-    ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
-    ...opcoes.headers
-  };
+/* =====================================================
+   CATEGORIAS
+===================================================== */
 
-  const resposta = await fetch(`${API_URL}${caminho}`, {
-    ...opcoes,
-    headers: cabecalhos
-  });
-
-  if (resposta.status === 204) return null;
-
-  const tipo = resposta.headers.get("content-type") || "";
-
-  const dados = tipo.includes("application/json")
-    ? await resposta.json()
-    : await resposta.text();
-
-  if (!resposta.ok) {
-    const detalhe =
-      typeof dados === "object" && dados !== null
-        ? Object.entries(dados)
-            .map(([campo, valor]) => {
-              const texto = Array.isArray(valor)
-                ? valor.join(", ")
-                : typeof valor === "string"
-                  ? valor
-                  : JSON.stringify(valor);
-
-              return `${campo}: ${texto}`;
-            })
-            .join(" | ")
-        : String(dados || "Não foi possível concluir a operação.");
-
-    throw new Error(detalhe);
+const idCategoria = (categoria) => {
+  if (typeof categoria === "object" && categoria !== null) {
+    return String(categoria.idCategoria ?? categoria.id ?? "");
   }
 
-  return dados;
+  return String(categoria ?? "");
+};
+
+const nomeCategoria = (categoria) => {
+  if (typeof categoria === "object" && categoria !== null) {
+    return categoria.nome_categoria || categoria.nome || "Categoria";
+  }
+
+  const encontrada = categoriasDisponiveis.value.find((item) => {
+    return idCategoria(item) === String(categoria);
+  });
+
+  return encontrada?.nome_categoria || encontrada?.nome || "Categoria";
 };
 
 const categoriasDisponiveis = computed(() => {
   const mapa = new Map();
 
   categorias.value.forEach((categoria) => {
-    const id = categoria.idCategoria ?? categoria.id;
-
-    if (id != null) {
-      mapa.set(String(id), categoria);
-    }
+    const id = idCategoria(categoria);
+    if (id) mapa.set(id, categoria);
   });
 
   produtos.value.forEach((produto) => {
@@ -154,11 +264,8 @@ const categoriasDisponiveis = computed(() => {
 
     produto.categorias.forEach((categoria) => {
       if (typeof categoria === "object" && categoria !== null) {
-        const id = categoria.idCategoria ?? categoria.id;
-
-        if (id != null) {
-          mapa.set(String(id), categoria);
-        }
+        const id = idCategoria(categoria);
+        if (id) mapa.set(id, categoria);
       }
     });
   });
@@ -166,12 +273,15 @@ const categoriasDisponiveis = computed(() => {
   return [...mapa.values()];
 });
 
+/* =====================================================
+   FILTROS E INDICADORES
+===================================================== */
+
 const produtosFiltrados = computed(() => {
   const termo = busca.value.trim().toLocaleLowerCase("pt-BR");
 
   return produtos.value.filter((produto) => {
     const nome = String(produto.nome || "").toLocaleLowerCase("pt-BR");
-
     const correspondeBusca = nome.includes(termo);
 
     const listaCategorias = Array.isArray(produto.categorias)
@@ -181,12 +291,7 @@ const produtosFiltrados = computed(() => {
     const correspondeCategoria =
       categoriaSelecionada.value === "todas" ||
       listaCategorias.some((categoria) => {
-        const id =
-          typeof categoria === "object" && categoria !== null
-            ? categoria.idCategoria ?? categoria.id
-            : categoria;
-
-        return String(id) === String(categoriaSelecionada.value);
+        return idCategoria(categoria) === String(categoriaSelecionada.value);
       });
 
     return correspondeBusca && correspondeCategoria;
@@ -196,24 +301,16 @@ const produtosFiltrados = computed(() => {
 const totalProdutos = computed(() => produtos.value.length);
 
 const totalFavoritos = computed(() => {
-  return produtos.value.filter((produto) => produto.favorito).length;
+  return produtos.value.filter((produto) => Boolean(produto.favorito)).length;
 });
 
-const nomeCategoria = (categoria) => {
-  if (typeof categoria === "object" && categoria !== null) {
-    return categoria.nome_categoria || categoria.nome || "Categoria";
-  }
+const totalPromocoes = computed(() => {
+  return produtos.value.filter(possuiDesconto).length;
+});
 
-  const encontrada = categoriasDisponiveis.value.find((item) => {
-    return String(item.idCategoria ?? item.id) === String(categoria);
-  });
-
-  return encontrada?.nome_categoria || encontrada?.nome || "Categoria";
-};
-
-const idCategoria = (categoria) => {
-  return String(categoria.idCategoria ?? categoria.id);
-};
+/* =====================================================
+   CARREGAMENTO DA API
+===================================================== */
 
 const carregarProdutos = async () => {
   carregando.value = true;
@@ -233,15 +330,21 @@ const carregarCategorias = async () => {
   try {
     const dados = await requisicao("/categorias/");
     categorias.value = normalizarLista(dados);
-  } catch {
+  } catch (e) {
+    console.error("Erro ao carregar categorias:", e);
     categorias.value = [];
   }
 };
+
+/* =====================================================
+   FORMULÁRIO
+===================================================== */
 
 const limparFormulario = () => {
   formulario.value = {
     nome: "",
     preco: "",
+    desconto: "0",
     imagem: "",
     ingredientes_base: "",
     ingredientes_creme: "",
@@ -255,31 +358,33 @@ const abrirCadastro = () => {
 
   modoEdicao.value = false;
   produtoEditando.value = null;
+
   erro.value = "";
+  mensagem.value = "";
+
   modalAberto.value = true;
 };
 
 const abrirEdicao = (produto) => {
   modoEdicao.value = true;
   produtoEditando.value = produto;
+
   erro.value = "";
+  mensagem.value = "";
 
   formulario.value = {
     nome: produto.nome || "",
     preco: String(produto.preco ?? "").replace(".", ","),
+    desconto: String(produto.desconto ?? 0).replace(".", ","),
     imagem: produto.imagem || "",
     ingredientes_base: produto.ingredientes_base || "",
     ingredientes_creme: produto.ingredientes_creme || "",
     favorito: Boolean(produto.favorito),
-    categorias: Array.isArray(produto.categorias)
-      ? produto.categorias.map((categoria) => {
-          const id =
-            typeof categoria === "object" && categoria !== null
-              ? categoria.idCategoria ?? categoria.id
-              : categoria;
 
-          return String(id);
-        })
+    categorias: Array.isArray(produto.categorias)
+      ? produto.categorias
+          .map((categoria) => idCategoria(categoria))
+          .filter(Boolean)
       : []
   };
 
@@ -302,23 +407,42 @@ const alternarCategoria = (id) => {
       (item) => item !== identificador
     );
   } else {
-    formulario.value.categorias = [...selecionadas, identificador];
+    formulario.value.categorias = [
+      ...selecionadas,
+      identificador
+    ];
   }
 };
 
+/* =====================================================
+   PRÉVIA DO DESCONTO
+===================================================== */
+
+const precoPreview = computed(() => {
+  const preco = converterPreco(formulario.value.preco);
+  const desconto = converterPreco(formulario.value.desconto || "0");
+
+  if (!Number.isFinite(preco) || preco < 0) return null;
+  if (!Number.isFinite(desconto) || desconto < 0 || desconto > 100) {
+    return null;
+  }
+
+  return preco * (1 - desconto / 100);
+});
+
+/* =====================================================
+   CADASTRAR E EDITAR PRODUTO
+===================================================== */
+
 const salvarProduto = async () => {
+  if (salvando.value) return;
+
   erro.value = "";
   mensagem.value = "";
 
-  const nome = formulario.value.nome.trim();
-
-  const precoTexto = String(formulario.value.preco)
-    .trim()
-    .replace(/\s/g, "")
-    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
-    .replace(",", ".");
-
-  const preco = Number(precoTexto);
+  const nome = String(formulario.value.nome || "").trim();
+  const preco = converterPreco(formulario.value.preco);
+  const desconto = converterPreco(formulario.value.desconto || "0");
 
   if (!nome) {
     erro.value = "Informe o nome do produto.";
@@ -326,7 +450,7 @@ const salvarProduto = async () => {
   }
 
   if (
-    formulario.value.preco === "" ||
+    !String(formulario.value.preco ?? "").trim() ||
     !Number.isFinite(preco) ||
     preco < 0
   ) {
@@ -334,13 +458,32 @@ const salvarProduto = async () => {
     return;
   }
 
+  if (
+    !Number.isFinite(desconto) ||
+    desconto < 0 ||
+    desconto > 100
+  ) {
+    erro.value = "O desconto deve ser um valor entre 0% e 100%.";
+    return;
+  }
+
   const dadosProduto = {
     nome,
     preco: preco.toFixed(2),
-    imagem: formulario.value.imagem.trim() || null,
-    ingredientes_base: formulario.value.ingredientes_base.trim(),
-    ingredientes_creme: formulario.value.ingredientes_creme.trim(),
-    favorito: formulario.value.favorito,
+    desconto: desconto.toFixed(2),
+
+    imagem: String(formulario.value.imagem || "").trim() || null,
+
+    ingredientes_base: String(
+      formulario.value.ingredientes_base || ""
+    ).trim(),
+
+    ingredientes_creme: String(
+      formulario.value.ingredientes_creme || ""
+    ).trim(),
+
+    favorito: Boolean(formulario.value.favorito),
+
     categorias: formulario.value.categorias.map(Number)
   };
 
@@ -348,7 +491,15 @@ const salvarProduto = async () => {
 
   try {
     if (modoEdicao.value && produtoEditando.value) {
-      await requisicao(`/produtos/${produtoEditando.value.idProduto}/`, {
+      const id = produtoEditando.value.idProduto;
+
+      if (id == null) {
+        throw new Error(
+          "Não foi possível identificar o produto para edição."
+        );
+      }
+
+      await requisicao(`/produtos/${id}/`, {
         method: "PATCH",
         body: JSON.stringify(dadosProduto)
       });
@@ -372,44 +523,66 @@ const salvarProduto = async () => {
   }
 };
 
+/* =====================================================
+   EXCLUIR PRODUTO
+===================================================== */
+
 const excluirProduto = async () => {
-  if (!confirmacaoExclusao.value) return;
+  if (!confirmacaoExclusao.value || excluindo.value) return;
 
   erro.value = "";
+  mensagem.value = "";
 
-  const id = confirmacaoExclusao.value.idProduto;
+  const produto = confirmacaoExclusao.value;
+  const id = produto.idProduto;
+
+  if (id == null) {
+    erro.value = "Não foi possível identificar o produto.";
+    return;
+  }
+
+  excluindo.value = true;
 
   try {
     await requisicao(`/produtos/${id}/`, {
       method: "DELETE"
     });
 
-    produtos.value = produtos.value.filter(
-      (produto) => produto.idProduto !== id
-    );
+    produtos.value = produtos.value.filter((item) => {
+      return String(item.idProduto) !== String(id);
+    });
 
+    confirmacaoExclusao.value = null;
     mensagem.value = "Produto excluído com sucesso.";
   } catch (e) {
     erro.value = e.message || "Não foi possível excluir o produto.";
-  } finally {
     confirmacaoExclusao.value = null;
+  } finally {
+    excluindo.value = false;
   }
 };
 
+/* =====================================================
+   FAVORITOS
+===================================================== */
+
 const alternarFavorito = async (produto) => {
   erro.value = "";
+  mensagem.value = "";
+
+  const novoFavorito = !Boolean(produto.favorito);
 
   try {
     await requisicao(`/produtos/${produto.idProduto}/favorito/`, {
       method: "PATCH",
       body: JSON.stringify({
-        favorito: !produto.favorito
+        favorito: novoFavorito
       })
     });
 
-    produto.favorito = !produto.favorito;
+    produto.favorito = novoFavorito;
 
-    mensagem.value = produto.favorito
+    mensagem.value = novoFavorito
       ? "Produto adicionado aos favoritos."
       : "Produto removido dos favoritos.";
   } catch (e) {
@@ -417,9 +590,15 @@ const alternarFavorito = async (produto) => {
   }
 };
 
-onMounted(() => {
-  carregarProdutos();
-  carregarCategorias();
+/* =====================================================
+   INICIALIZAÇÃO
+===================================================== */
+
+onMounted(async () => {
+  await Promise.all([
+    carregarProdutos(),
+    carregarCategorias()
+  ]);
 });
 </script>
 
@@ -439,16 +618,13 @@ onMounted(() => {
         <p>Cuide de cada detalhe do cardápio da Padaria Martins.</p>
       </div>
 
-      <button
-        type="button"
-        class="botao-principal"
-        @click="abrirCadastro"
-      >
+      <button type="button" class="botao-principal" @click="abrirCadastro">
         <i class="fa-solid fa-plus"></i>
         Novo produto
       </button>
     </header>
 
+    <!-- RESUMO -->
     <section class="resumo-produtos">
       <article class="resumo-card">
         <div class="resumo-icone icone-marrom">
@@ -476,17 +652,18 @@ onMounted(() => {
 
       <article class="resumo-card">
         <div class="resumo-icone icone-verde">
-          <i class="fa-solid fa-layer-group"></i>
+          <i class="fa-solid fa-tags"></i>
         </div>
         <div class="resumo-texto">
-          <span>Categorias</span>
-          <strong>{{ categoriasDisponiveis.length }}</strong>
-          <small>Tipos de produtos</small>
+          <span>Produtos em promoção</span>
+          <strong>{{ totalPromocoes }}</strong>
+          <small>Com desconto aplicado</small>
         </div>
         <span class="resumo-detalhe">03</span>
       </article>
     </section>
 
+    <!-- CATÁLOGO -->
     <section class="catalogo-card">
       <div class="catalogo-cabecalho">
         <div>
@@ -501,6 +678,7 @@ onMounted(() => {
         </span>
       </div>
 
+      <!-- FILTROS -->
       <div class="filtros">
         <label class="campo-busca">
           <i class="fa-solid fa-magnifying-glass"></i>
@@ -509,7 +687,6 @@ onMounted(() => {
             type="search"
             placeholder="Buscar produto pelo nome..."
           />
-
           <button
             v-if="busca"
             type="button"
@@ -522,10 +699,8 @@ onMounted(() => {
 
         <label class="campo-categoria">
           <i class="fa-solid fa-sliders"></i>
-
           <select v-model="categoriaSelecionada">
             <option value="todas">Todas as categorias</option>
-
             <option
               v-for="categoria in categoriasDisponiveis"
               :key="idCategoria(categoria)"
@@ -534,16 +709,12 @@ onMounted(() => {
               {{ categoria.nome_categoria || categoria.nome }}
             </option>
           </select>
-
           <i class="fa-solid fa-chevron-down seta-select"></i>
         </label>
       </div>
 
-      <div
-        v-if="mensagem"
-        class="alerta alerta-sucesso"
-        role="status"
-      >
+      <!-- MENSAGENS -->
+      <div v-if="mensagem" class="alerta alerta-sucesso" role="status">
         <i class="fa-solid fa-circle-check"></i>
         {{ mensagem }}
         <button
@@ -571,12 +742,14 @@ onMounted(() => {
         </button>
       </div>
 
+      <!-- CARREGANDO -->
       <div v-if="carregando" class="estado-vazio">
         <i class="fa-solid fa-spinner girando"></i>
         <h3>Carregando produtos...</h3>
         <p>Estamos organizando o catálogo da padaria.</p>
       </div>
 
+      <!-- PRODUTOS -->
       <div
         v-else-if="produtosFiltrados.length"
         class="produtos-grid"
@@ -592,6 +765,7 @@ onMounted(() => {
               :src="getImageUrl(produto.imagem)"
               :alt="produto.nome"
               loading="lazy"
+              @load="imagemCarregada"
               @error="imagemComErro"
             />
 
@@ -602,6 +776,10 @@ onMounted(() => {
 
             <span class="produto-numero">
               Nº {{ String(index + 1).padStart(2, "0") }}
+            </span>
+
+            <span v-if="possuiDesconto(produto)" class="selo-desconto">
+              -{{ Number(produto.desconto) }}%
             </span>
 
             <button
@@ -640,13 +818,44 @@ onMounted(() => {
             </div>
 
             <h3>{{ produto.nome }}</h3>
+
             <p class="produto-descricao">
               Produto do catálogo da padaria.
             </p>
 
             <div class="produto-preco">
-              <span>Preço de venda</span>
-              <strong>{{ formatarPreco(produto.preco) }}</strong>
+              <div class="preco-informacoes">
+                <span>Preço de venda</span>
+
+                <strong
+                  v-if="possuiDesconto(produto)"
+                  class="preco-original"
+                >
+                  {{ formatarPreco(produto.preco) }}
+                </strong>
+
+                <strong class="preco-atual">
+                  {{ formatarPreco(calcularPrecoComDesconto(produto)) }}
+                </strong>
+
+                <small v-if="possuiDesconto(produto)" class="economia">
+                  Você economiza
+                  {{
+                    formatarPreco(
+                      Number(produto.preco) -
+                      calcularPrecoComDesconto(produto)
+                    )
+                  }}
+                </small>
+              </div>
+
+              <span
+                v-if="possuiDesconto(produto)"
+                class="etiqueta-oferta"
+              >
+                <i class="fa-solid fa-tag"></i>
+                Oferta
+              </span>
             </div>
 
             <div class="produto-acoes">
@@ -673,6 +882,7 @@ onMounted(() => {
         </article>
       </div>
 
+      <!-- VAZIO -->
       <div v-else-if="!carregando" class="estado-vazio">
         <div class="estado-icone">
           <i class="fa-solid fa-bread-slice"></i>
@@ -706,6 +916,7 @@ onMounted(() => {
       </div>
     </section>
 
+    <!-- MODAIS -->
     <Teleport to="body">
       <Transition name="modal">
         <div
@@ -726,7 +937,11 @@ onMounted(() => {
 
               <div class="modal-titulo-texto">
                 <span class="eyebrow">
-                  {{ modoEdicao ? "ATUALIZAÇÃO DO CATÁLOGO" : "NOVO CADASTRO" }}
+                  {{
+                    modoEdicao
+                      ? "ATUALIZAÇÃO DO CATÁLOGO"
+                      : "NOVO CADASTRO"
+                  }}
                 </span>
 
                 <h2 id="modal-titulo">
@@ -758,6 +973,8 @@ onMounted(() => {
               @submit.prevent="salvarProduto"
             >
               <div class="formulario-scroll">
+
+                <!-- INFORMAÇÕES -->
                 <section class="form-secao">
                   <div class="form-secao-titulo">
                     <span>01</span>
@@ -772,7 +989,6 @@ onMounted(() => {
                       <label for="nomeProduto">
                         Nome do produto <span>*</span>
                       </label>
-
                       <input
                         id="nomeProduto"
                         v-model="formulario.nome"
@@ -787,7 +1003,6 @@ onMounted(() => {
                       <label for="precoProduto">
                         Preço de venda <span>*</span>
                       </label>
-
                       <div class="campo-preco">
                         <span>R$</span>
                         <input
@@ -802,6 +1017,44 @@ onMounted(() => {
                     </div>
 
                     <div class="campo-formulario">
+                      <label for="descontoProduto">
+                        Desconto (%)
+                      </label>
+                      <div class="campo-preco campo-desconto">
+                        <i class="fa-solid fa-percent"></i>
+                        <input
+                          id="descontoProduto"
+                          v-model="formulario.desconto"
+                          type="text"
+                          inputmode="decimal"
+                          placeholder="0"
+                        />
+                      </div>
+                      <small class="texto-ajuda">
+                        Informe de 0 a 100. Use 0 para preço normal.
+                      </small>
+                    </div>
+
+                    <div class="campo-formulario campo-largo">
+                      <div
+                        v-if="precoPreview !== null"
+                        class="previa-preco"
+                      >
+                        <div>
+                          <span>Prévia do preço final</span>
+                          <strong>{{ formatarPreco(precoPreview) }}</strong>
+                        </div>
+
+                        <span
+                          v-if="Number(converterPreco(formulario.desconto || '0')) > 0"
+                          class="previa-economia"
+                        >
+                          Desconto de {{ formulario.desconto }}%
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="campo-formulario">
                       <label class="label-favorito" for="favoritoProduto">
                         Produto favorito
                       </label>
@@ -812,9 +1065,7 @@ onMounted(() => {
                           v-model="formulario.favorito"
                           type="checkbox"
                         />
-
                         <span class="favorito-switch"></span>
-
                         <span>
                           <strong>
                             {{ formulario.favorito ? "Favorito" : "Normal" }}
@@ -826,6 +1077,7 @@ onMounted(() => {
                   </div>
                 </section>
 
+                <!-- IMAGEM -->
                 <section class="form-secao">
                   <div class="form-secao-titulo">
                     <span>02</span>
@@ -841,6 +1093,7 @@ onMounted(() => {
                         v-if="getImageUrl(formulario.imagem)"
                         :src="getImageUrl(formulario.imagem)"
                         alt="Prévia do produto"
+                        @load="imagemCarregada"
                         @error="imagemComErro"
                       />
 
@@ -880,6 +1133,7 @@ onMounted(() => {
                   </div>
                 </section>
 
+                <!-- CATEGORIAS -->
                 <section class="form-secao">
                   <div class="form-secao-titulo">
                     <span>03</span>
@@ -928,10 +1182,15 @@ onMounted(() => {
 
                   <small class="ajuda-categorias">
                     {{ formulario.categorias.length }}
-                    {{ formulario.categorias.length === 1 ? "categoria selecionada" : "categorias selecionadas" }}
+                    {{
+                      formulario.categorias.length === 1
+                        ? "categoria selecionada"
+                        : "categorias selecionadas"
+                    }}
                   </small>
                 </section>
 
+                <!-- INGREDIENTES -->
                 <section class="form-secao">
                   <div class="form-secao-titulo">
                     <span>04</span>
@@ -946,7 +1205,6 @@ onMounted(() => {
                       <label for="ingredientesBase">
                         Ingredientes da base
                       </label>
-
                       <textarea
                         id="ingredientesBase"
                         v-model="formulario.ingredientes_base"
@@ -959,7 +1217,6 @@ onMounted(() => {
                       <label for="ingredientesCreme">
                         Ingredientes do creme
                       </label>
-
                       <textarea
                         id="ingredientesCreme"
                         v-model="formulario.ingredientes_creme"
@@ -972,7 +1229,7 @@ onMounted(() => {
 
                 <div
                   v-if="erro"
-                  class="alerta alerta-erro"
+                  class="alerta alerta-erro alerta-formulario"
                   role="alert"
                 >
                   <i class="fa-solid fa-circle-exclamation"></i>
@@ -1004,12 +1261,7 @@ onMounted(() => {
                       v-if="salvando"
                       class="fa-solid fa-spinner girando"
                     ></i>
-
-                    <i
-                      v-else
-                      class="fa-solid fa-check"
-                    ></i>
-
+                    <i v-else class="fa-solid fa-check"></i>
                     {{ salvando ? "Salvando..." : "Salvar produto" }}
                   </button>
                 </div>
@@ -1019,11 +1271,12 @@ onMounted(() => {
         </div>
       </Transition>
 
+      <!-- CONFIRMAÇÃO DE EXCLUSÃO -->
       <Transition name="modal">
         <div
           v-if="confirmacaoExclusao"
           class="modal-overlay"
-          @click.self="confirmacaoExclusao = null"
+          @click.self="!excluindo && (confirmacaoExclusao = null)"
         >
           <section class="confirmacao-card">
             <div class="confirmacao-icone">
@@ -1043,6 +1296,7 @@ onMounted(() => {
               <button
                 type="button"
                 class="botao-cancelar"
+                :disabled="excluindo"
                 @click="confirmacaoExclusao = null"
               >
                 Cancelar
@@ -1051,17 +1305,23 @@ onMounted(() => {
               <button
                 type="button"
                 class="botao-excluir-confirmar"
+                :disabled="excluindo"
                 @click="excluirProduto"
               >
-                <i class="fa-solid fa-trash-can"></i>
-                Excluir
+                <i
+                  :class="
+                    excluindo
+                      ? 'fa-solid fa-spinner girando'
+                      : 'fa-solid fa-trash-can'
+                  "
+                ></i>
+                {{ excluindo ? "Excluindo..." : "Excluir" }}
               </button>
             </div>
           </section>
         </div>
       </Transition>
     </Teleport>
-
   </div>
 </template>
 
@@ -1083,16 +1343,11 @@ onMounted(() => {
 }
 
 @keyframes entrada {
-  from {
-    opacity: 0;
-    transform: translateY(9px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+
+/* CABEÇALHO */
 
 .pagina-cabecalho {
   display: flex;
@@ -1102,9 +1357,7 @@ onMounted(() => {
   margin-bottom: 27px;
 }
 
-.titulo-bloco {
-  min-width: 0;
-}
+.titulo-bloco { min-width: 0; }
 
 .caminho {
   display: flex;
@@ -1120,9 +1373,7 @@ onMounted(() => {
   font-size: 0.58rem;
 }
 
-.caminho strong {
-  color: #76543b;
-}
+.caminho strong { color: #76543b; }
 
 .eyebrow {
   display: block;
@@ -1141,9 +1392,7 @@ onMounted(() => {
   line-height: 1;
 }
 
-.titulo-bloco h1 span {
-  color: #b89764;
-}
+.titulo-bloco h1 span { color: #b89764; }
 
 .titulo-bloco p {
   margin: 0;
@@ -1175,6 +1424,8 @@ onMounted(() => {
   background: #48251b;
 }
 
+/* RESUMO */
+
 .resumo-produtos {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1197,9 +1448,7 @@ onMounted(() => {
   transition: 0.2s ease;
 }
 
-.resumo-card:hover {
-  transform: translateY(-2px);
-}
+.resumo-card:hover { transform: translateY(-2px); }
 
 .resumo-icone {
   display: grid;
@@ -1210,20 +1459,9 @@ onMounted(() => {
   border-radius: 15px;
 }
 
-.icone-marrom {
-  background: #f2e5d8;
-  color: #815039;
-}
-
-.icone-dourado {
-  background: #f7efdf;
-  color: #b18c56;
-}
-
-.icone-verde {
-  background: #edf1e8;
-  color: #728466;
-}
+.icone-marrom { background: #f2e5d8; color: #815039; }
+.icone-dourado { background: #f7efdf; color: #b18c56; }
+.icone-verde { background: #edf1e8; color: #728466; }
 
 .resumo-texto {
   display: flex;
@@ -1232,10 +1470,7 @@ onMounted(() => {
   gap: 4px;
 }
 
-.resumo-texto span {
-  color: #927f6d;
-  font-size: 0.68rem;
-}
+.resumo-texto span { color: #927f6d; font-size: 0.68rem; }
 
 .resumo-texto strong {
   color: #4c3325;
@@ -1243,10 +1478,7 @@ onMounted(() => {
   font-size: 1.55rem;
 }
 
-.resumo-texto small {
-  color: #aa9886;
-  font-size: 0.62rem;
-}
+.resumo-texto small { color: #aa9886; font-size: 0.62rem; }
 
 .resumo-detalhe {
   position: absolute;
@@ -1256,6 +1488,8 @@ onMounted(() => {
   font-family: "Playfair Display", Georgia, serif;
   font-size: 1.4rem;
 }
+
+/* CATÁLOGO */
 
 .catalogo-card {
   overflow: hidden;
@@ -1297,6 +1531,8 @@ onMounted(() => {
   font-weight: 800;
 }
 
+/* FILTROS */
+
 .filtros {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 245px;
@@ -1337,9 +1573,7 @@ onMounted(() => {
   font-size: 0.76rem;
 }
 
-.campo-busca input::placeholder {
-  color: #b1a394;
-}
+.campo-busca input::placeholder { color: #b1a394; }
 
 .campo-busca button {
   display: grid;
@@ -1354,14 +1588,10 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.campo-categoria select {
-  appearance: none;
-  cursor: pointer;
-}
+.campo-categoria select { appearance: none; cursor: pointer; }
+.campo-categoria .seta-select { font-size: 0.65rem; }
 
-.campo-categoria .seta-select {
-  font-size: 0.65rem;
-}
+/* GRID DE PRODUTOS */
 
 .produtos-grid {
   display: grid;
@@ -1385,6 +1615,8 @@ onMounted(() => {
   box-shadow: 0 18px 35px rgba(73, 48, 29, 0.1);
 }
 
+/* IMAGENS */
+
 .produto-imagem {
   position: relative;
   height: 220px;
@@ -1404,9 +1636,7 @@ onMounted(() => {
   transition: transform 0.45s ease;
 }
 
-.produto-card:hover .produto-imagem img {
-  transform: scale(1.045);
-}
+.produto-card:hover .produto-imagem img { transform: scale(1.045); }
 
 .marca-imagem {
   position: absolute;
@@ -1421,17 +1651,11 @@ onMounted(() => {
   pointer-events: none;
 }
 
-.marca-imagem i {
-  font-size: 2.5rem;
-}
+.marca-imagem i { font-size: 2.5rem; }
 
 .marca-imagem span {
   font-family: "Playfair Display", Georgia, serif;
   font-size: 1rem;
-}
-
-.produto-imagem:not(.sem-imagem) img[src] ~ .marca-imagem {
-  display: none;
 }
 
 .produto-numero {
@@ -1447,9 +1671,24 @@ onMounted(() => {
   font-weight: 800;
 }
 
-.botao-favorito {
+.selo-desconto {
   position: absolute;
   z-index: 2;
+  right: 13px;
+  bottom: 13px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 11px;
+  background: #a94e3e;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  box-shadow: 0 5px 15px rgba(73, 32, 25, 0.2);
+}
+
+.botao-favorito {
+  position: absolute;
+  z-index: 3;
   top: 13px;
   right: 13px;
   display: grid;
@@ -1466,18 +1705,20 @@ onMounted(() => {
   transition: 0.2s ease;
 }
 
-.botao-favorito:hover {
-  transform: scale(1.06);
-}
+.botao-favorito:hover { transform: scale(1.06); }
 
 .botao-favorito.favorito {
   color: #b95748;
   background: #fff4f1;
 }
 
+.produto-imagem.sem-imagem img { display: none !important; }
+
+/* CONTEÚDO DOS PRODUTOS */
+
 .produto-conteudo {
   display: flex;
-  min-height: 315px;
+  min-height: 335px;
   flex-direction: column;
   padding: 20px;
 }
@@ -1516,27 +1757,64 @@ onMounted(() => {
   line-height: 1.6;
 }
 
+/* PREÇO COM DESCONTO */
+
 .produto-preco {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-top: auto;
-  padding: 17px 0;
+  padding: 15px 0;
   border-top: 1px solid #eee4d9;
 }
 
-.produto-preco span {
+.preco-informacoes {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.preco-informacoes > span {
   color: #a18b76;
   font-size: 0.68rem;
 }
 
-.produto-preco strong {
+.preco-original {
+  color: #aa9a89;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: line-through;
+}
+
+.preco-atual {
   color: #70432e;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.4rem;
+  font-size: 1.45rem;
   white-space: nowrap;
 }
+
+.economia {
+  color: #64805c;
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.etiqueta-oferta {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f9eee9;
+  color: #a65342;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+/* AÇÕES */
 
 .produto-acoes {
   display: flex;
@@ -1562,9 +1840,7 @@ onMounted(() => {
   transition: 0.2s ease;
 }
 
-.botao-editar {
-  flex: 1;
-}
+.botao-editar { flex: 1; }
 
 .botao-editar:hover {
   border-color: #c9ab7b;
@@ -1582,6 +1858,8 @@ onMounted(() => {
   border-color: #e3bdb4;
   background: #fff3f0;
 }
+
+/* ESTADOS VAZIOS */
 
 .estado-vazio {
   display: flex;
@@ -1626,6 +1904,8 @@ onMounted(() => {
   line-height: 1.7;
 }
 
+/* ALERTAS */
+
 .alerta {
   display: flex;
   align-items: center;
@@ -1665,7 +1945,9 @@ onMounted(() => {
   cursor: pointer;
 }
 
-/* Modal */
+.alerta-formulario { margin: 15px 0 0; }
+
+/* MODAL */
 
 .modal-overlay {
   position: fixed;
@@ -1718,9 +2000,7 @@ onMounted(() => {
   font-size: 1.15rem;
 }
 
-.modal-titulo-texto {
-  min-width: 0;
-}
+.modal-titulo-texto { min-width: 0; }
 
 .modal-titulo-texto h2 {
   margin: 4px 0 3px;
@@ -1756,10 +2036,7 @@ onMounted(() => {
   background: #f8f0e5;
 }
 
-.modal-fechar:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
+.modal-fechar:disabled { opacity: 0.5; cursor: wait; }
 
 .formulario-produto {
   display: flex;
@@ -1778,28 +2055,24 @@ onMounted(() => {
   scrollbar-width: thin;
 }
 
-.formulario-scroll::-webkit-scrollbar {
-  width: 7px;
-}
-
+.formulario-scroll::-webkit-scrollbar { width: 7px; }
 .formulario-scroll::-webkit-scrollbar-track {
   background: #f7f1e8;
   border-radius: 20px;
 }
-
 .formulario-scroll::-webkit-scrollbar-thumb {
   background: #d5c2a8;
   border-radius: 20px;
 }
+
+/* SEÇÕES DO FORMULÁRIO */
 
 .form-secao {
   padding: 21px 0;
   border-bottom: 1px solid #eee5da;
 }
 
-.form-secao:last-of-type {
-  border-bottom: 0;
-}
+.form-secao:last-of-type { border-bottom: 0; }
 
 .form-secao-titulo {
   display: flex;
@@ -1840,9 +2113,7 @@ onMounted(() => {
   gap: 16px;
 }
 
-.campo-largo {
-  grid-column: 1 / -1;
-}
+.campo-largo { grid-column: 1 / -1; }
 
 .campo-formulario {
   display: flex;
@@ -1857,9 +2128,7 @@ onMounted(() => {
   font-weight: 800;
 }
 
-.campo-formulario > label span {
-  color: #b66b58;
-}
+.campo-formulario > label span { color: #b66b58; }
 
 .campo-formulario input,
 .campo-formulario textarea {
@@ -1883,15 +2152,15 @@ onMounted(() => {
 }
 
 .campo-formulario input::placeholder,
-.campo-formulario textarea::placeholder {
-  color: #b5a493;
-}
+.campo-formulario textarea::placeholder { color: #b5a493; }
 
 .campo-formulario input:focus,
 .campo-formulario textarea:focus {
   border-color: #b89764;
   box-shadow: 0 0 0 3px rgba(184, 151, 100, 0.1);
 }
+
+/* PREÇO E DESCONTO */
 
 .campo-preco {
   display: flex;
@@ -1914,14 +2183,62 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.campo-preco > i {
+  padding-left: 14px;
+  color: #98734d;
+  font-size: 0.78rem;
+}
+
 .campo-preco input {
   border: 0;
   box-shadow: none !important;
 }
 
-.label-favorito {
-  display: block;
+.texto-ajuda {
+  color: #a18d7b;
+  font-size: 0.62rem;
+  line-height: 1.4;
 }
+
+.previa-preco {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #dce8d5;
+  border-radius: 13px;
+  background: #f4f8f0;
+}
+
+.previa-preco > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previa-preco span {
+  color: #74866a;
+  font-size: 0.68rem;
+}
+
+.previa-preco strong {
+  color: #506d48;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.3rem;
+}
+
+.previa-economia {
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: #e6efdf;
+  color: #58764f !important;
+  font-weight: 800;
+}
+
+/* FAVORITO */
+
+.label-favorito { display: block; }
 
 .favorito-controle {
   display: flex;
@@ -1961,9 +2278,7 @@ onMounted(() => {
   transition: 0.2s ease;
 }
 
-.favorito-controle input:checked + .favorito-switch {
-  background: #b89764;
-}
+.favorito-controle input:checked + .favorito-switch { background: #b89764; }
 
 .favorito-controle input:checked + .favorito-switch::after {
   transform: translateX(16px);
@@ -1975,15 +2290,10 @@ onMounted(() => {
   gap: 3px;
 }
 
-.favorito-controle strong {
-  color: #654a34;
-  font-size: 0.72rem;
-}
+.favorito-controle strong { color: #654a34; font-size: 0.72rem; }
+.favorito-controle small { color: #a18b76; font-size: 0.63rem; }
 
-.favorito-controle small {
-  color: #a18b76;
-  font-size: 0.63rem;
-}
+/* IMAGEM */
 
 .imagem-editor {
   display: grid;
@@ -2021,13 +2331,8 @@ onMounted(() => {
   font-size: 0.65rem;
 }
 
-.imagem-preview-vazia i {
-  font-size: 1.7rem;
-}
-
-.imagem-preview:has(img[src]) .imagem-preview-vazia {
-  display: none;
-}
+.imagem-preview-vazia i { font-size: 1.7rem; }
+.imagem-preview.sem-imagem img { display: none !important; }
 
 .imagem-editor-campos {
   display: flex;
@@ -2077,6 +2382,8 @@ onMounted(() => {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* CATEGORIAS */
 
 .categorias-opcoes {
   display: grid;
@@ -2162,6 +2469,8 @@ onMounted(() => {
   font-size: 0.65rem;
 }
 
+/* RODAPÉ DO MODAL */
+
 .modal-rodape {
   position: relative;
   z-index: 2;
@@ -2176,15 +2485,8 @@ onMounted(() => {
   box-shadow: 0 -7px 20px rgba(65, 43, 27, 0.035);
 }
 
-.campos-obrigatorios {
-  color: #a18d7b;
-  font-size: 0.65rem;
-}
-
-.campos-obrigatorios span {
-  color: #b66b58;
-  font-weight: 800;
-}
+.campos-obrigatorios { color: #a18d7b; font-size: 0.65rem; }
+.campos-obrigatorios span { color: #b66b58; font-weight: 800; }
 
 .modal-acoes {
   display: flex;
@@ -2210,14 +2512,8 @@ onMounted(() => {
   transition: 0.2s ease;
 }
 
-.botao-cancelar {
-  background: #fff;
-  color: #80654c;
-}
-
-.botao-cancelar:hover {
-  background: #f8f0e5;
-}
+.botao-cancelar { background: #fff; color: #80654c; }
+.botao-cancelar:hover { background: #f8f0e5; }
 
 .botao-salvar {
   border-color: #5e3023;
@@ -2237,24 +2533,7 @@ onMounted(() => {
   cursor: wait;
 }
 
-.alerta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 15px;
-  border: 1px solid;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.alerta-erro {
-  margin-top: 15px;
-  border-color: #eed2ca;
-  background: #fff6f3;
-  color: #a74e40;
-}
+/* EXCLUSÃO */
 
 .confirmacao-card {
   width: min(100%, 420px);
@@ -2292,13 +2571,8 @@ onMounted(() => {
   line-height: 1.7;
 }
 
-.confirmacao-card p strong {
-  color: #634630;
-}
-
-.confirmacao-card .modal-acoes {
-  justify-content: center;
-}
+.confirmacao-card p strong { color: #634630; }
+.confirmacao-card .modal-acoes { justify-content: center; }
 
 .botao-excluir-confirmar {
   border-color: #b46b5b;
@@ -2306,34 +2580,28 @@ onMounted(() => {
   color: #fff;
 }
 
-.botao-excluir-confirmar:hover {
-  background: #984f42;
+.botao-excluir-confirmar:hover { background: #984f42; }
+
+.botao-excluir-confirmar:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
-.girando {
-  animation: girar 0.9s linear infinite;
-}
+/* ANIMAÇÕES */
 
-@keyframes girar {
-  to {
-    transform: rotate(360deg);
-  }
-}
+.girando { animation: girar 0.9s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
 
 .modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
+.modal-leave-active { transition: opacity 0.2s ease; }
 
 .modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
+.modal-leave-to { opacity: 0; }
+
+/* RESPONSIVIDADE */
 
 @media (max-width: 1050px) {
-  .produtos-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .produtos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -2343,9 +2611,7 @@ onMounted(() => {
     gap: 18px;
   }
 
-  .titulo-bloco h1 {
-    font-size: 2.65rem;
-  }
+  .titulo-bloco h1 { font-size: 2.65rem; }
 
   .resumo-produtos {
     grid-template-columns: 1fr;
@@ -2370,13 +2636,8 @@ onMounted(() => {
     gap: 16px;
   }
 
-  .produto-imagem {
-    height: 230px;
-  }
-
-  .produto-conteudo {
-    min-height: 290px;
-  }
+  .produto-imagem { height: 230px; }
+  .produto-conteudo { min-height: 305px; }
 
   .alerta {
     margin-right: 17px;
@@ -2393,48 +2654,27 @@ onMounted(() => {
     border-radius: 21px;
   }
 
-  .modal-cabecalho {
-    padding: 17px;
-  }
+  .modal-cabecalho { padding: 17px; }
 
   .modal-titulo-icone {
     width: 44px;
     height: 44px;
   }
 
-  .modal-titulo-texto h2 {
-    font-size: 1.4rem;
-  }
+  .modal-titulo-texto h2 { font-size: 1.4rem; }
 
-  .formulario-scroll {
-    padding: 5px 17px 20px;
-  }
-
-  .modal-rodape {
-    padding: 13px 17px;
-  }
+  .formulario-scroll { padding: 5px 17px 20px; }
+  .modal-rodape { padding: 13px 17px; }
 }
 
 @media (max-width: 520px) {
-  .campos-grid {
-    grid-template-columns: 1fr;
-  }
+  .campos-grid { grid-template-columns: 1fr; }
+  .campo-largo { grid-column: auto; }
 
-  .campo-largo {
-    grid-column: auto;
-  }
+  .imagem-editor { grid-template-columns: 1fr; }
+  .imagem-preview { height: 155px; }
 
-  .imagem-editor {
-    grid-template-columns: 1fr;
-  }
-
-  .imagem-preview {
-    height: 155px;
-  }
-
-  .categorias-opcoes {
-    grid-template-columns: 1fr;
-  }
+  .categorias-opcoes { grid-template-columns: 1fr; }
 
   .modal-rodape {
     align-items: stretch;
@@ -2442,51 +2682,24 @@ onMounted(() => {
     gap: 9px;
   }
 
-  .campos-obrigatorios {
-    text-align: center;
-  }
+  .campos-obrigatorios { text-align: center; }
+  .modal-acoes { width: 100%; }
+  .modal-acoes button { flex: 1; }
 
-  .modal-acoes {
-    width: 100%;
-  }
-
-  .modal-acoes button {
-    flex: 1;
+  .previa-preco {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
 @media (max-width: 390px) {
-  .titulo-bloco h1 {
-    font-size: 2.25rem;
-  }
-
-  .produto-imagem {
-    height: 195px;
-  }
-
-  .produto-conteudo {
-    padding: 16px;
-  }
-
-  .produto-conteudo h3 {
-    font-size: 1.3rem;
-  }
-
-  .modal-titulo-icone {
-    display: none;
-  }
-
-  .modal-titulo-texto h2 {
-    font-size: 1.25rem;
-  }
-
-  .modal-titulo-texto p {
-    font-size: 0.66rem;
-  }
-
-  .modal-fechar {
-    width: 34px;
-    height: 34px;
-  }
+  .titulo-bloco h1 { font-size: 2.25rem; }
+  .produto-imagem { height: 195px; }
+  .produto-conteudo { padding: 16px; }
+  .produto-conteudo h3 { font-size: 1.3rem; }
+  .modal-titulo-icone { display: none; }
+  .modal-titulo-texto h2 { font-size: 1.25rem; }
+  .modal-titulo-texto p { font-size: 0.66rem; }
+  .modal-fechar { width: 34px; height: 34px; }
 }
 </style>
