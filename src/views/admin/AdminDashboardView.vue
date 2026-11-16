@@ -1,10 +1,13 @@
+
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+).replace(/\/+$/, "");
 
 const adminUsername = ref(
   localStorage.getItem("adminUsername") || "Administrador"
@@ -12,19 +15,37 @@ const adminUsername = ref(
 
 const carregando = ref(true);
 const erro = ref("");
+const ultimaAtualizacao = ref(null);
 
 const resumo = ref({
   produtos: 0,
   categorias: 0,
   encomendas: 0,
-  usuarios: 0
+  usuarios: 0,
+  faturamento_mes: 0,
+  pendentes: 0,
+  concluidas: 0,
+  ticket_medio: 0
 });
 
 const grafico = ref([]);
 const ultimasEncomendas = ref([]);
+const produtosMaisVendidos = ref([]);
+const alertas = ref([]);
+
+let intervaloAtualizacao = null;
 
 const primeiroNome = computed(() => {
   return adminUsername.value.trim().split(/\s+/)[0] || "Administrador";
+});
+
+const dataAtual = computed(() => {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  }).format(new Date());
 });
 
 const maiorValorGrafico = computed(() => {
@@ -68,6 +89,88 @@ const areaGrafico = computed(() => {
   return `${primeiro[0]},190 ${pontosGrafico.value} ${ultimo[0]},190`;
 });
 
+const totalEncomendasGrafico = computed(() => {
+  return grafico.value.reduce(
+    (total, item) => total + Number(item.encomendas || 0),
+    0
+  );
+});
+
+const faturamentoGrafico = computed(() => {
+  return grafico.value.reduce(
+    (total, item) => total + Number(item.faturamento || 0),
+    0
+  );
+});
+
+const maiorVendaProduto = computed(() => {
+  return Math.max(
+    1,
+    ...produtosMaisVendidos.value.map(item => Number(item.quantidade || 0))
+  );
+});
+
+const indicadores = computed(() => [
+  {
+    id: "produtos",
+    titulo: "Produtos",
+    descricao: "Itens cadastrados no catálogo",
+    valor: resumo.value.produtos,
+    icone: "fa-bread-slice",
+    cor: "terracota",
+    rota: "/admin/produtos",
+    tipo: "numero"
+  },
+  {
+    id: "encomendas",
+    titulo: "Encomendas",
+    descricao: "Pedidos registrados",
+    valor: resumo.value.encomendas,
+    icone: "fa-receipt",
+    cor: "dourado",
+    rota: "/admin/encomendas",
+    tipo: "numero"
+  },
+  {
+    id: "usuarios",
+    titulo: "Usuários",
+    descricao: "Contas cadastradas",
+    valor: resumo.value.usuarios,
+    icone: "fa-users",
+    cor: "oliva",
+    rota: "/admin/usuarios",
+    tipo: "numero"
+  },
+  {
+    id: "faturamento",
+    titulo: "Faturamento",
+    descricao: "Faturamento do mês",
+    valor: resumo.value.faturamento_mes,
+    icone: "fa-wallet",
+    cor: "dourado",
+    tipo: "moeda"
+  },
+  {
+    id: "pendentes",
+    titulo: "Pendentes",
+    descricao: "Aguardando atendimento",
+    valor: resumo.value.pendentes,
+    icone: "fa-clock",
+    cor: "terracota",
+    rota: "/admin/encomendas",
+    tipo: "numero"
+  },
+  {
+    id: "concluidas",
+    titulo: "Concluídas",
+    descricao: "Pedidos finalizados",
+    valor: resumo.value.concluidas,
+    icone: "fa-circle-check",
+    cor: "oliva",
+    tipo: "numero"
+  }
+]);
+
 const formatarMoeda = valor => {
   return Number(valor || 0).toLocaleString("pt-BR", {
     style: "currency",
@@ -78,12 +181,52 @@ const formatarMoeda = valor => {
 const formatarData = data => {
   if (!data) return "—";
 
+  const dataConvertida = new Date(data);
+
+  if (Number.isNaN(dataConvertida.getTime())) return "—";
+
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
     minute: "2-digit"
-  }).format(new Date(data));
+  }).format(dataConvertida);
+};
+
+const formatarQuantidade = valor => {
+  return Number(valor || 0).toLocaleString("pt-BR");
+};
+
+const navegar = rota => {
+  if (rota) router.push(rota);
+};
+
+const normalizarStatus = status => {
+  const valor = String(status || "").toLowerCase();
+
+  if (
+    valor.includes("conclu") ||
+    valor.includes("finaliz") ||
+    valor.includes("entreg")
+  ) {
+    return "concluida";
+  }
+
+  if (
+    valor.includes("cancel")
+  ) {
+    return "cancelada";
+  }
+
+  if (
+    valor.includes("pend") ||
+    valor.includes("aguard") ||
+    valor.includes("prepar")
+  ) {
+    return "pendente";
+  }
+
+  return "andamento";
 };
 
 const carregarDashboard = async () => {
@@ -107,19 +250,42 @@ const carregarDashboard = async () => {
     });
 
     if (resposta.status === 401 || resposta.status === 403) {
-      erro.value = "Sua sessão administrativa expirou ou não tem permissão.";
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("adminRefresh");
+      router.replace("/admin/login");
       return;
     }
 
     if (!resposta.ok) {
-      throw new Error("Não foi possível carregar os dados do dashboard.");
+      throw new Error(
+        "Não foi possível carregar os dados do dashboard."
+      );
     }
 
     const dados = await resposta.json();
 
-    resumo.value = dados.resumo || resumo.value;
-    grafico.value = dados.grafico || [];
-    ultimasEncomendas.value = dados.ultimas_encomendas || [];
+    resumo.value = {
+      ...resumo.value,
+      ...(dados.resumo || {})
+    };
+
+    grafico.value = Array.isArray(dados.grafico)
+      ? dados.grafico
+      : [];
+
+    ultimasEncomendas.value = Array.isArray(dados.ultimas_encomendas)
+      ? dados.ultimas_encomendas
+      : [];
+
+    produtosMaisVendidos.value = Array.isArray(dados.produtos_mais_vendidos)
+      ? dados.produtos_mais_vendidos
+      : [];
+
+    alertas.value = Array.isArray(dados.alertas)
+      ? dados.alertas
+      : [];
+
+    ultimaAtualizacao.value = new Date();
 
   } catch (error) {
     erro.value = error.message || "Erro ao conectar com o servidor.";
@@ -128,44 +294,30 @@ const carregarDashboard = async () => {
   }
 };
 
-const indicadores = computed(() => [
-  {
-    id: "produtos",
-    titulo: "Produtos",
-    descricao: "Itens cadastrados no catálogo",
-    valor: resumo.value.produtos,
-    icone: "fa-bread-slice",
-    cor: "terracota",
-    rota: "/admin/produtos"
-  },
-  {
-    id: "encomendas",
-    titulo: "Encomendas",
-    descricao: "Pedidos registrados",
-    valor: resumo.value.encomendas,
-    icone: "fa-receipt",
-    cor: "dourado",
-    rota: "/admin/encomendas"
-  },
-  {
-    id: "usuarios",
-    titulo: "Usuários",
-    descricao: "Contas cadastradas",
-    valor: resumo.value.usuarios,
-    icone: "fa-users",
-    cor: "oliva",
-    rota: "/admin/usuarios"
+const iniciarAtualizacaoAutomatica = () => {
+  intervaloAtualizacao = window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      carregarDashboard();
+    }
+  }, 60000);
+};
+
+onMounted(() => {
+  carregarDashboard();
+  iniciarAtualizacaoAutomatica();
+});
+
+onUnmounted(() => {
+  if (intervaloAtualizacao) {
+    window.clearInterval(intervaloAtualizacao);
   }
-]);
-
-const navegar = rota => router.push(rota);
-
-onMounted(carregarDashboard);
+});
 </script>
 
 <template>
-  <div class="dashboard">
+  <main class="dashboard">
 
+    <!-- HERO -->
     <section class="hero-admin">
       <div class="hero-textura"></div>
       <div class="hero-circulo hero-circulo-1"></div>
@@ -182,15 +334,20 @@ onMounted(carregarDashboard);
             Bem-vindo, {{ primeiroNome }}.
           </p>
 
-          <h2>
+          <h1>
             A tradição de hoje,
             <em>o sucesso de amanhã.</em>
-          </h2>
+          </h1>
 
           <p class="hero-descricao">
             Sua padaria, sua história, sua gestão.
             Tudo começa com cuidado em cada detalhe.
           </p>
+
+          <div class="hero-data">
+            <i class="fa-regular fa-calendar"></i>
+            {{ dataAtual }}
+          </div>
 
           <button
             type="button"
@@ -227,6 +384,7 @@ onMounted(carregarDashboard);
       </div>
     </section>
 
+    <!-- VISÃO GERAL -->
     <section class="secao-visao">
       <div class="secao-cabecalho">
         <div>
@@ -252,6 +410,7 @@ onMounted(carregarDashboard);
       <div v-if="erro" class="erro-dashboard">
         <i class="fa-solid fa-circle-exclamation"></i>
         <span>{{ erro }}</span>
+
         <button type="button" @click="carregarDashboard">
           Tentar novamente
         </button>
@@ -270,35 +429,61 @@ onMounted(carregarDashboard);
             <span class="metrica-icone">
               <i :class="`fa-solid ${item.icone}`"></i>
             </span>
-            <span class="metrica-detalhe">TOTAL</span>
+            <span class="metrica-detalhe">INDICADOR</span>
           </div>
 
           <div class="metrica-conteudo">
-            <template v-if="carregando">
-              <span class="valor-carregando"></span>
-            </template>
-            <template v-else>
-              <strong>{{ item.valor }}</strong>
-            </template>
+            <span v-if="carregando" class="valor-carregando"></span>
+
+            <strong v-else>
+              {{ item.tipo === "moeda"
+                ? formatarMoeda(item.valor)
+                : formatarQuantidade(item.valor) }}
+            </strong>
 
             <h3>{{ item.titulo }}</h3>
             <p>{{ item.descricao }}</p>
           </div>
 
           <div class="metrica-rodape">
-            <span>Acessar área</span>
-            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+            <span>{{ item.rota ? "Acessar área" : "Resumo do período" }}</span>
+            <i
+              :class="item.rota
+                ? 'fa-solid fa-arrow-up-right-from-square'
+                : 'fa-solid fa-chart-line'"
+            ></i>
           </div>
         </button>
       </div>
     </section>
 
+    <!-- TICKET MÉDIO -->
+    <section class="resumo-financeiro">
+      <div class="resumo-financeiro-icone">
+        <i class="fa-solid fa-chart-simple"></i>
+      </div>
+
+      <div class="resumo-financeiro-texto">
+        <span>VALOR MÉDIO POR PEDIDO</span>
+        <strong v-if="!carregando">
+          {{ formatarMoeda(resumo.ticket_medio) }}
+        </strong>
+        <span v-else class="valor-carregando"></span>
+      </div>
+
+      <div class="resumo-financeiro-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <span>Ticket médio do período informado pela API</span>
+      </div>
+    </section>
+
+    <!-- GRÁFICO -->
     <section class="painel-grafico">
       <div class="grafico-cabecalho">
         <div>
           <span class="eyebrow">DESEMPENHO</span>
           <h2>Movimento de encomendas</h2>
-          <p>Quantidade de compras registradas nos últimos seis meses.</p>
+          <p>Quantidade de compras registradas nos últimos meses.</p>
         </div>
 
         <span class="grafico-legenda">
@@ -308,11 +493,14 @@ onMounted(carregarDashboard);
       </div>
 
       <div v-if="carregando" class="grafico-carregando">
+        <i class="fa-solid fa-chart-line"></i>
         Carregando dados do gráfico...
       </div>
 
       <div v-else-if="!grafico.length" class="grafico-vazio">
-        Ainda não há dados suficientes para exibir o gráfico.
+        <i class="fa-solid fa-chart-column"></i>
+        <strong>Sem dados para exibir</strong>
+        <span>Assim que houver registros, o gráfico aparecerá aqui.</span>
       </div>
 
       <div v-else class="grafico-area">
@@ -321,7 +509,7 @@ onMounted(carregarDashboard);
           viewBox="0 0 600 210"
           preserveAspectRatio="none"
           role="img"
-          aria-label="Gráfico de encomendas dos últimos seis meses"
+          aria-label="Gráfico de encomendas"
         >
           <line
             v-for="linha in [20, 62, 104, 146, 190]"
@@ -353,8 +541,13 @@ onMounted(carregarDashboard);
           />
         </svg>
 
-        <div class="grafico-meses">
-          <span v-for="item in grafico" :key="item.mes">
+        <div
+          class="grafico-meses"
+          :style="{
+            gridTemplateColumns: `repeat(${grafico.length}, minmax(0, 1fr))`
+          }"
+        >
+          <span v-for="(item, index) in grafico" :key="index">
             {{ item.mes }}
           </span>
         </div>
@@ -363,27 +556,150 @@ onMounted(carregarDashboard);
           <div>
             <span>Total no período</span>
             <strong>
-              {{ grafico.reduce((total, item) => total + Number(item.encomendas || 0), 0) }}
+              {{ formatarQuantidade(totalEncomendasGrafico) }}
               encomendas
             </strong>
           </div>
 
           <div>
             <span>Faturamento no período</span>
-            <strong>
-              {{ formatarMoeda(grafico.reduce((total, item) => total + Number(item.faturamento || 0), 0)) }}
-            </strong>
+            <strong>{{ formatarMoeda(faturamentoGrafico) }}</strong>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- PRODUTOS MAIS VENDIDOS -->
+    <section class="painel-produtos">
+      <div class="secao-bloco-cabecalho">
+        <div>
+          <span class="eyebrow">DESTAQUES DO CATÁLOGO</span>
+          <h2>Produtos mais vendidos</h2>
+          <p>Os produtos com maior quantidade de vendas.</p>
+        </div>
+
+        <button
+          type="button"
+          class="link-encomendas"
+          @click="navegar('/admin/produtos')"
+        >
+          Ver catálogo
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+      <div v-if="carregando" class="estado-lista">
+        Carregando produtos...
+      </div>
+
+      <div
+        v-else-if="!produtosMaisVendidos.length"
+        class="estado-lista"
+      >
+        <i class="fa-solid fa-basket-shopping"></i>
+        <strong>Nenhum produto em destaque.</strong>
+        <span>Os produtos mais vendidos aparecerão aqui.</span>
+      </div>
+
+      <div v-else class="ranking-produtos">
+        <div
+          v-for="(produto, index) in produtosMaisVendidos"
+          :key="produto.id || produto.nome || index"
+          class="ranking-item"
+        >
+          <span class="ranking-posicao">
+            {{ String(index + 1).padStart(2, "0") }}
+          </span>
+
+          <div class="ranking-info">
+            <div class="ranking-titulo">
+              <strong>{{ produto.nome || "Produto" }}</strong>
+              <span>{{ formatarQuantidade(produto.quantidade) }} vendidos</span>
+            </div>
+
+            <div class="ranking-barra">
+              <span
+                :style="{
+                  width: `${Math.min(
+                    100,
+                    Number(produto.quantidade || 0) /
+                    maiorVendaProduto * 100
+                  )}%`
+                }"
+              ></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section class="painel-alertas">
+      <div class="secao-bloco-cabecalho">
+        <div>
+          <span class="eyebrow">ATENÇÃO</span>
+          <h2>Avisos administrativos</h2>
+          <p>Pontos que podem precisar da sua atenção.</p>
+        </div>
+
+        <span class="alertas-contagem">
+          {{ alertas.length }} avisos
+        </span>
+      </div>
+
+      <div v-if="carregando" class="estado-lista">
+        Verificando avisos...
+      </div>
+
+      <div v-else-if="!alertas.length" class="alerta-vazio">
+        <span class="alerta-vazio-icone">
+          <i class="fa-solid fa-check"></i>
+        </span>
+        <div>
+          <strong>Tudo em ordem!</strong>
+          <span>Não há avisos administrativos no momento.</span>
+        </div>
+      </div>
+
+      <div v-else class="lista-alertas">
+        <div
+          v-for="(alerta, index) in alertas"
+          :key="alerta.id || index"
+          class="alerta-item"
+          :class="`alerta-${alerta.tipo || 'info'}`"
+        >
+          <span class="alerta-icone">
+            <i
+              :class="alerta.icone
+                ? `fa-solid ${alerta.icone}`
+                : 'fa-solid fa-circle-info'"
+            ></i>
+          </span>
+
+          <div>
+            <strong>{{ alerta.titulo || "Aviso" }}</strong>
+            <p>{{ alerta.mensagem || "" }}</p>
+          </div>
+
+          <button
+            v-if="alerta.rota"
+            type="button"
+            @click="navegar(alerta.rota)"
+          >
+            Ver
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ÚLTIMAS ENCOMENDAS -->
     <section class="ultimas-section">
       <div class="ultimas-cabecalho">
         <div>
           <span class="eyebrow">ACOMPANHAMENTO</span>
           <h2>Últimas encomendas</h2>
-          <p>Os cinco pedidos mais recentes registrados.</p>
+          <p>Os pedidos mais recentes registrados.</p>
         </div>
 
         <button
@@ -421,8 +737,17 @@ onMounted(carregarDashboard);
 
           <div class="encomenda-cliente">
             <strong>{{ compra.cliente || "Cliente" }}</strong>
-            <small>Pedido #{{ compra.id }} · {{ formatarData(compra.data) }}</small>
+            <small>
+              Pedido #{{ compra.id }} · {{ formatarData(compra.data) }}
+            </small>
           </div>
+
+          <span
+            class="status-encomenda"
+            :class="`status-${normalizarStatus(compra.status)}`"
+          >
+            {{ compra.status || "Em andamento" }}
+          </span>
 
           <div class="encomenda-pagamento">
             {{ compra.pagamento || "Não informado" }}
@@ -435,16 +760,27 @@ onMounted(carregarDashboard);
       </div>
     </section>
 
+    <!-- RODAPÉ -->
     <footer class="dashboard-footer">
       <span></span>
+
       <div>
         <i class="fa-solid fa-heart"></i>
         PADARIA MARTINS
       </div>
+
       <span></span>
+
+      <small v-if="ultimaAtualizacao">
+        Atualizado às
+        {{ ultimaAtualizacao.toLocaleTimeString("pt-BR", {
+          hour: "2-digit",
+          minute: "2-digit"
+        }) }}
+      </small>
     </footer>
 
-  </div>
+  </main>
 </template>
 
 <style scoped>
@@ -456,21 +792,27 @@ onMounted(carregarDashboard);
 
 .dashboard {
   --cafe: #5e3023;
+  --cafe-escuro: #38251c;
   --dourado: #b89764;
+  --dourado-claro: #e1c98f;
   --texto: #493327;
   --suave: #978677;
+  --borda: #eee4d8;
+
   width: 100%;
   max-width: 1500px;
   margin: 0 auto;
-  padding-bottom: 20px;
+  padding-bottom: 25px;
   color: var(--texto);
   font-family: "DM Sans", sans-serif;
 }
 
+/* HERO */
+
 .hero-admin {
   position: relative;
   isolation: isolate;
-  min-height: 330px;
+  min-height: 340px;
   padding: 30px 34px 0;
   overflow: hidden;
   border-radius: 26px;
@@ -513,7 +855,7 @@ onMounted(carregarDashboard);
 
 .hero-conteudo {
   display: flex;
-  min-height: 275px;
+  min-height: 305px;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
@@ -553,7 +895,7 @@ onMounted(carregarDashboard);
   font-size: .86rem;
 }
 
-.hero-esquerda h2 {
+.hero-esquerda h1 {
   margin: 0;
   color: #fffaf3;
   font-family: "Playfair Display", Georgia, serif;
@@ -562,7 +904,7 @@ onMounted(carregarDashboard);
   line-height: 1.12;
 }
 
-.hero-esquerda h2 em {
+.hero-esquerda h1 em {
   display: block;
   color: #dfc28d;
   font-weight: 500;
@@ -570,10 +912,20 @@ onMounted(carregarDashboard);
 
 .hero-descricao {
   max-width: 480px;
-  margin: 16px 0 22px;
+  margin: 16px 0 12px;
   color: rgba(255,250,243,.7);
   font-size: .84rem;
   line-height: 1.75;
+}
+
+.hero-data {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 19px;
+  color: #dfc9aa;
+  font-size: .7rem;
+  text-transform: capitalize;
 }
 
 .hero-botao {
@@ -697,13 +1049,16 @@ onMounted(carregarDashboard);
   font-size: .58rem;
 }
 
+/* CABEÇALHOS */
+
 .secao-visao {
   margin-top: 40px;
 }
 
 .secao-cabecalho,
 .grafico-cabecalho,
-.ultimas-cabecalho {
+.ultimas-cabecalho,
+.secao-bloco-cabecalho {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -721,7 +1076,8 @@ onMounted(carregarDashboard);
 
 .secao-cabecalho h2,
 .grafico-cabecalho h2,
-.ultimas-cabecalho h2 {
+.ultimas-cabecalho h2,
+.secao-bloco-cabecalho h2 {
   margin: 8px 0 7px;
   color: #503427;
   font-family: "Playfair Display", Georgia, serif;
@@ -731,7 +1087,8 @@ onMounted(carregarDashboard);
 
 .secao-cabecalho p,
 .grafico-cabecalho p,
-.ultimas-cabecalho p {
+.ultimas-cabecalho p,
+.secao-bloco-cabecalho p {
   margin: 0;
   color: #988777;
   font-size: .8rem;
@@ -749,6 +1106,12 @@ onMounted(carregarDashboard);
   font-size: .7rem;
   font-weight: 800;
   cursor: pointer;
+  transition: .2s ease;
+}
+
+.btn-atualizar:hover {
+  border-color: var(--dourado);
+  background: #fcf8f1;
 }
 
 .btn-atualizar:disabled {
@@ -763,6 +1126,8 @@ onMounted(carregarDashboard);
 @keyframes girar {
   to { transform: rotate(360deg); }
 }
+
+/* ERRO */
 
 .erro-dashboard {
   display: flex;
@@ -785,6 +1150,8 @@ onMounted(carregarDashboard);
   font-weight: 800;
   cursor: pointer;
 }
+
+/* INDICADORES */
 
 .metricas {
   display: grid;
@@ -858,6 +1225,7 @@ onMounted(carregarDashboard);
 
 .metrica-conteudo > strong {
   display: block;
+  overflow-wrap: anywhere;
   color: #53392a;
   font-family: "Playfair Display", Georgia, serif;
   font-size: 2rem;
@@ -900,9 +1268,64 @@ onMounted(carregarDashboard);
   font-weight: 700;
 }
 
+/* RESUMO FINANCEIRO */
+
+.resumo-financeiro {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 17px;
+  padding: 19px 22px;
+  border: 1px solid #eadfce;
+  border-radius: 17px;
+  background: linear-gradient(110deg, #fffaf2, #fff);
+}
+
+.resumo-financeiro-icone {
+  display: grid;
+  width: 45px;
+  height: 45px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 14px;
+  background: #f3eadb;
+  color: #a9824e;
+}
+
+.resumo-financeiro-texto {
+  display: grid;
+  gap: 5px;
+}
+
+.resumo-financeiro-texto > span:first-child {
+  color: #a18f7d;
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.resumo-financeiro-texto strong {
+  color: #5e3023;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.resumo-financeiro-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  color: #a18f7d;
+  font-size: .65rem;
+}
+
+/* PAINÉIS */
+
 .painel-grafico,
+.painel-produtos,
+.painel-alertas,
 .ultimas-section {
-  margin-top: 30px;
+  margin-top: 25px;
   padding: 25px;
   border: 1px solid #eee4d8;
   border-radius: 23px;
@@ -910,12 +1333,15 @@ onMounted(carregarDashboard);
   box-shadow: 0 10px 32px rgba(65,43,28,.035);
 }
 
+/* GRÁFICO */
+
 .grafico-cabecalho {
   align-items: center;
 }
 
 .grafico-cabecalho h2,
-.ultimas-cabecalho h2 {
+.ultimas-cabecalho h2,
+.secao-bloco-cabecalho h2 {
   font-size: 1.6rem;
 }
 
@@ -971,7 +1397,7 @@ onMounted(carregarDashboard);
 
 .grafico-meses {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
   margin-top: 8px;
   color: #9a8877;
   text-align: center;
@@ -1017,6 +1443,206 @@ onMounted(carregarDashboard);
   font-size: .78rem;
 }
 
+.grafico-vazio > i,
+.grafico-carregando > i,
+.estado-lista > i {
+  color: #c2a477;
+  font-size: 1.5rem;
+}
+
+.grafico-vazio strong,
+.estado-lista strong {
+  color: #634735;
+}
+
+/* PRODUTOS MAIS VENDIDOS */
+
+.ranking-produtos {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 5px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ranking-posicao {
+  display: grid;
+  width: 37px;
+  height: 37px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 11px;
+  background: #f5ecdf;
+  color: #987348;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: .9rem;
+}
+
+.ranking-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.ranking-titulo {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.ranking-titulo strong {
+  overflow: hidden;
+  color: #5e4231;
+  font-size: .75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking-titulo span {
+  flex-shrink: 0;
+  color: #a18f7d;
+  font-size: .66rem;
+}
+
+.ranking-barra {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 30px;
+  background: #f1eae1;
+}
+
+.ranking-barra span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b89764, #d7bd8b);
+  transition: width .4s ease;
+}
+
+/* ALERTAS */
+
+.alertas-contagem {
+  padding: 7px 11px;
+  border-radius: 30px;
+  background: #f5ecdf;
+  color: #987348;
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.alerta-vazio {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid #e4ebdf;
+  border-radius: 14px;
+  background: #f8fbf5;
+}
+
+.alerta-vazio-icone {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 12px;
+  background: #e8f0e2;
+  color: #6d805f;
+}
+
+.alerta-vazio div {
+  display: grid;
+  gap: 5px;
+}
+
+.alerta-vazio strong {
+  color: #526548;
+  font-size: .76rem;
+}
+
+.alerta-vazio div span {
+  color: #8d9b83;
+  font-size: .68rem;
+}
+
+.lista-alertas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alerta-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #eee4d8;
+  border-radius: 13px;
+  background: #fffdf9;
+}
+
+.alerta-icone {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 11px;
+  background: #f5ecdf;
+  color: #a9824e;
+}
+
+.alerta-item > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.alerta-item strong {
+  color: #624735;
+  font-size: .74rem;
+}
+
+.alerta-item p {
+  margin: 4px 0 0;
+  color: #9a8877;
+  font-size: .67rem;
+}
+
+.alerta-item button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: #987348;
+  font-size: .67rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.alerta-aviso .alerta-icone {
+  background: #fff1d8;
+  color: #a87935;
+}
+
+.alerta-erro .alerta-icone {
+  background: #f9e6e1;
+  color: #a34d3d;
+}
+
+.alerta-sucesso .alerta-icone {
+  background: #e8f0e2;
+  color: #6d805f;
+}
+
+/* ENCOMENDAS */
+
 .ultimas-section {
   margin-top: 25px;
 }
@@ -1035,6 +1661,11 @@ onMounted(carregarDashboard);
   font-size: .7rem;
   font-weight: 800;
   cursor: pointer;
+  transition: .2s ease;
+}
+
+.link-encomendas:hover {
+  color: #5e3023;
 }
 
 .tabela-encomendas {
@@ -1094,6 +1725,37 @@ onMounted(carregarDashboard);
   white-space: nowrap;
 }
 
+.status-encomenda {
+  padding: 6px 9px;
+  border-radius: 30px;
+  font-size: .58rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.status-pendente {
+  background: #fff1d8;
+  color: #98703b;
+}
+
+.status-concluida {
+  background: #e8f0e2;
+  color: #637b55;
+}
+
+.status-cancelada {
+  background: #f9e6e1;
+  color: #a34d3d;
+}
+
+.status-andamento {
+  background: #eeeaf4;
+  color: #79658f;
+}
+
+/* RODAPÉ */
+
 .dashboard-footer {
   display: flex;
   align-items: center;
@@ -1122,17 +1784,32 @@ onMounted(carregarDashboard);
   color: #b89764;
 }
 
+.dashboard-footer small {
+  color: #ad9a85;
+  font-size: .58rem;
+}
+
+/* ACESSIBILIDADE */
+
 .dashboard button:focus-visible {
   outline: 3px solid rgba(184,151,100,.65);
   outline-offset: 3px;
 }
 
-@media (max-width: 900px) {
+/* TABLET */
+
+@media (max-width: 1000px) {
+  .metricas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-direita {
     transform: scale(.85);
     margin-right: -20px;
   }
 }
+
+/* MOBILE */
 
 @media (max-width: 760px) {
   .hero-admin {
@@ -1153,22 +1830,33 @@ onMounted(carregarDashboard);
     display: none;
   }
 
-  .hero-esquerda h2 {
+  .hero-esquerda h1 {
     font-size: clamp(1.9rem, 6vw, 2.6rem);
   }
 
   .metricas {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 11px;
   }
 
   .metrica {
-    min-height: 0;
+    min-height: 175px;
+    padding: 15px;
+  }
+
+  .metrica-conteudo > strong {
+    font-size: 1.6rem;
   }
 
   .painel-grafico,
+  .painel-produtos,
+  .painel-alertas,
   .ultimas-section {
     padding: 19px 15px;
+  }
+
+  .resumo-financeiro-info {
+    display: none;
   }
 }
 
@@ -1177,7 +1865,7 @@ onMounted(carregarDashboard);
     padding: 20px 16px 8px;
   }
 
-  .hero-esquerda h2 {
+  .hero-esquerda h1 {
     font-size: 2rem;
   }
 
@@ -1192,13 +1880,15 @@ onMounted(carregarDashboard);
 
   .secao-cabecalho,
   .grafico-cabecalho,
-  .ultimas-cabecalho {
+  .ultimas-cabecalho,
+  .secao-bloco-cabecalho {
     align-items: flex-start;
   }
 
   .secao-cabecalho h2,
   .grafico-cabecalho h2,
-  .ultimas-cabecalho h2 {
+  .ultimas-cabecalho h2,
+  .secao-bloco-cabecalho h2 {
     font-size: 1.4rem;
   }
 
@@ -1211,16 +1901,45 @@ onMounted(carregarDashboard);
     font-size: .8rem;
   }
 
+  .metricas {
+    grid-template-columns: 1fr;
+  }
+
+  .metrica {
+    min-height: 155px;
+  }
+
   .grafico-svg {
     height: 170px;
+  }
+
+  .grafico-meses {
+    font-size: .56rem;
   }
 
   .grafico-resumo {
     gap: 18px;
   }
 
+  .ranking-titulo {
+    align-items: flex-start;
+  }
+
+  .ranking-titulo span {
+    font-size: .59rem;
+  }
+
   .encomenda-linha {
+    flex-wrap: wrap;
     gap: 9px;
+  }
+
+  .encomenda-cliente {
+    flex-basis: calc(100% - 55px);
+  }
+
+  .status-encomenda {
+    margin-left: 50px;
   }
 
   .encomenda-pagamento {
@@ -1228,11 +1947,29 @@ onMounted(carregarDashboard);
   }
 
   .encomenda-total {
+    margin-left: auto;
     font-size: .82rem;
+  }
+
+  .alerta-item {
+    align-items: flex-start;
+  }
+
+  .alerta-item button {
+    align-self: center;
+  }
+
+  .dashboard-footer {
+    flex-wrap: wrap;
   }
 
   .dashboard-footer > span {
     width: 25px;
+  }
+
+  .dashboard-footer small {
+    flex-basis: 100%;
+    text-align: center;
   }
 }
 
