@@ -2,7 +2,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import '@/assets/css/DetalhesView.css';
+import '@/assets/css/detalhesView.css';
 
 const route = useRoute();
 const router = useRouter();

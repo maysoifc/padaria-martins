@@ -1,3 +1,4 @@
+
 <script setup>
 import { useRouter } from "vue-router";
 import InfoCard from "@/components/InfoCard.vue";
@@ -51,6 +52,25 @@ const carteira = [
     icone: "fa-credit-card",
     titulo: "Meus Cartões",
     descricao: "Formas de pagamento"
+  },
+  {
+    rota: "/detalhes/carteira/pix",
+    icone: "fa-qrcode",
+    titulo: "Meu PIX",
+    descricao: "Pagamento via PIX"
+  }
+];
+
+const grupos = [
+  {
+    titulo: "Pedidos",
+    label: "SEUS PEDIDOS",
+    itens: pedidos
+  },
+  {
+    titulo: "Carteira",
+    label: "BENEFÍCIOS E PAGAMENTOS",
+    itens: carteira
   }
 ];
 </script>
@@ -87,14 +107,7 @@ const carteira = [
 
       <div class="actions-container">
         <section
-          v-for="(grupo, indice) in [
-            { titulo: 'Pedidos', label: 'SEUS PEDIDOS', itens: pedidos },
-            {
-              titulo: 'Carteira',
-              label: 'BENEFÍCIOS E PAGAMENTOS',
-              itens: carteira
-            }
-          ]"
+          v-for="(grupo, indice) in grupos"
           :key="grupo.titulo"
           class="menu-section"
           :class="{ 'carteira-section': indice === 1 }"
