@@ -14,9 +14,7 @@ const lerCupons = () => {
   try {
     const dados = localStorage.getItem(CHAVE_CUPONS);
 
-    if (!dados) {
-      return [];
-    }
+    if (!dados) return [];
 
     const parsed = JSON.parse(dados);
 
@@ -81,6 +79,10 @@ const premios = [
   },
 ];
 
+// ========================================
+// PERSISTÊNCIA
+// ========================================
+
 const salvarSelos = () => {
   localStorage.setItem(CHAVE_SELOS, String(selos.value));
 };
@@ -92,6 +94,15 @@ const salvarCupons = () => {
   );
 };
 
+const recarregar = () => {
+  selos.value = lerSelos();
+  cupons.value = lerCupons();
+};
+
+// ========================================
+// CÓDIGO DO CUPOM
+// ========================================
+
 const gerarCodigo = () => {
   return `FID-${Date.now().toString(36).toUpperCase()}-${Math.random()
     .toString(36)
@@ -99,13 +110,37 @@ const gerarCodigo = () => {
     .toUpperCase()}`;
 };
 
+// ========================================
+// VERIFICAR STATUS DO CUPOM
+// Compatibilidade com cupons antigos
+// ========================================
+
+const cupomFoiUtilizado = (cupom) => {
+  return (
+    cupom.status === "utilizado" ||
+    cupom.resgatado === true
+  );
+};
+
+const buscarCupom = (codigo) => {
+  return cupons.value.find(
+    (cupom) => cupom.codigo === codigo
+  );
+};
+
+// ========================================
+// GERAR PRÊMIO ALEATÓRIO
+// ========================================
+
 const criarCupom = () => {
   const cupomExistente = cupons.value.find(
     (cupom) =>
       cupom.tipoSelo === "cartao-10-selos" &&
-      !cupom.resgatado
+      !cupomFoiUtilizado(cupom)
   );
 
+  // Não gera outro cupom se já existe
+  // um prêmio disponível.
   if (cupomExistente) {
     return cupomExistente;
   }
@@ -116,13 +151,20 @@ const criarCupom = () => {
   const novoCupom = {
     id: Date.now(),
     codigo: gerarCodigo(),
+
     tipoSelo: "cartao-10-selos",
+
     titulo: premio.titulo,
     descricao: premio.descricao,
     tipo: premio.tipo,
     icone: premio.icone,
+
+    status: "disponivel",
     resgatado: false,
+
     criadoEm: new Date().toISOString(),
+    utilizadoEm: null,
+    pedidoId: null,
   };
 
   cupons.value.push(novoCupom);
@@ -132,10 +174,17 @@ const criarCupom = () => {
   return novoCupom;
 };
 
+// ========================================
+// ADICIONAR SELO
+// ========================================
+
 const adicionarSelo = (valorCompra) => {
   const valor = Number(valorCompra);
 
-  if (!Number.isFinite(valor) || valor < VALOR_MINIMO) {
+  if (
+    !Number.isFinite(valor) ||
+    valor < VALOR_MINIMO
+  ) {
     return {
       ganhouSelo: false,
       completouCartao: false,
@@ -143,11 +192,17 @@ const adicionarSelo = (valorCompra) => {
     };
   }
 
+  // Não permite acumular selos além de 10
+  // enquanto o prêmio anterior estiver disponível.
   if (selos.value >= TOTAL_SELOS) {
     return {
       ganhouSelo: false,
       completouCartao: true,
-      cupom: null,
+      cupom: cupons.value.find(
+        (cupom) =>
+          cupom.tipoSelo === "cartao-10-selos" &&
+          !cupomFoiUtilizado(cupom)
+      ) || null,
     };
   }
 
@@ -170,31 +225,101 @@ const adicionarSelo = (valorCompra) => {
   };
 };
 
-const zerarSelos = () => {
-  selos.value = 0;
-  salvarSelos();
-};
+// ========================================
+// VALIDAR CUPOM
+// Não consome o cupom.
+// Pode ser chamado ao selecionar
+// ou aplicar o cupom no checkout.
+// ========================================
 
-const recarregar = () => {
-  selos.value = lerSelos();
-  cupons.value = lerCupons();
-};
+const validarCupom = (codigo) => {
+  if (!codigo) {
+    return {
+      valido: false,
+      mensagem: "Informe um código de cupom.",
+      cupom: null,
+    };
+  }
 
-const marcarCupomComoResgatado = (codigo) => {
-  const cupom = cupons.value.find(
-    (item) => item.codigo === codigo
-  );
+  const cupom = buscarCupom(codigo);
 
   if (!cupom) {
+    return {
+      valido: false,
+      mensagem: "Cupom não encontrado.",
+      cupom: null,
+    };
+  }
+
+  if (cupomFoiUtilizado(cupom)) {
+    return {
+      valido: false,
+      mensagem: "Este cupom já foi utilizado.",
+      cupom,
+    };
+  }
+
+  return {
+    valido: true,
+    mensagem: "Cupom disponível para utilização.",
+    cupom,
+  };
+};
+
+// ========================================
+// CONFIRMAR UTILIZAÇÃO
+//
+// IMPORTANTE:
+// Chamar SOMENTE depois da confirmação
+// efetiva do pagamento.
+// Nunca chamar ao selecionar o cupom.
+// ========================================
+
+const confirmarUsoCupom = (codigo, pedidoId = null) => {
+  const resultado = validarCupom(codigo);
+
+  if (!resultado.valido) {
     return false;
   }
 
+  const cupom = resultado.cupom;
+
+  cupom.status = "utilizado";
   cupom.resgatado = true;
+  cupom.utilizadoEm = new Date().toISOString();
+  cupom.pedidoId = pedidoId;
+
+  // O cartão de selos só é reiniciado
+  // depois que o prêmio for efetivamente utilizado.
+  if (cupom.tipoSelo === "cartao-10-selos") {
+    selos.value = 0;
+    salvarSelos();
+  }
 
   salvarCupons();
 
   return true;
 };
+
+// Compatibilidade com chamadas antigas.
+// Também deve ser chamado somente após
+// a confirmação do pagamento.
+const marcarCupomComoResgatado = (codigo) => {
+  return confirmarUsoCupom(codigo);
+};
+
+// ========================================
+// ZERAR SELOS MANUALMENTE
+// ========================================
+
+const zerarSelos = () => {
+  selos.value = 0;
+  salvarSelos();
+};
+
+// ========================================
+// INDICADORES
+// ========================================
 
 const progresso = computed(() => {
   return Math.min(
@@ -204,7 +329,10 @@ const progresso = computed(() => {
 });
 
 const faltam = computed(() => {
-  return Math.max(TOTAL_SELOS - selos.value, 0);
+  return Math.max(
+    TOTAL_SELOS - selos.value,
+    0
+  );
 });
 
 const cartaoCompleto = computed(() => {
@@ -213,9 +341,19 @@ const cartaoCompleto = computed(() => {
 
 const cuponsDisponiveis = computed(() => {
   return cupons.value.filter(
-    (cupom) => !cupom.resgatado
+    (cupom) => !cupomFoiUtilizado(cupom)
   );
 });
+
+const cuponsUtilizados = computed(() => {
+  return cupons.value.filter(
+    (cupom) => cupomFoiUtilizado(cupom)
+  );
+});
+
+// ========================================
+// COMPOSABLE
+// ========================================
 
 export function useFidelidade() {
   return {
@@ -229,12 +367,21 @@ export function useFidelidade() {
     progresso,
     faltam,
     cartaoCompleto,
+
     cuponsDisponiveis,
+    cuponsUtilizados,
 
     adicionarSelo,
-    zerarSelos,
+    criarCupom,
+    buscarCupom,
+    validarCupom,
+
+    confirmarUsoCupom,
     marcarCupomComoResgatado,
+
+    zerarSelos,
     recarregar,
+
     salvarSelos,
     salvarCupons,
   };
