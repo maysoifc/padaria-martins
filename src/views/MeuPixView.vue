@@ -2,7 +2,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import "@/assets/css/meuPixView.css";
+import "@/assets/css/meu-pix-view.css";
 
 const router = useRouter();
 

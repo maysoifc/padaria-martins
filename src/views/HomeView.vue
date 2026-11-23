@@ -1,4 +1,3 @@
-
 <script setup>
 import { computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
@@ -23,7 +22,7 @@ const categorias = [
   { nome: "Pães", icone: "fa-bread-slice" },
   { nome: "Doces", icone: "fa-cookie-bite" },
   { nome: "Salgados", icone: "fa-pizza-slice" },
-  { nome: "Bebidas", icone: "fa-mug-hot" }
+  { nome: "Bebidas", icone: "fa-mug-hot" },
 ];
 
 // Seleciona os 7 produtos mais bem avaliados
@@ -35,14 +34,9 @@ const produtosDestaques = computed(() => {
   return [...produtos.value]
     .map((produto) => ({
       ...produto,
-      notaOrdenacao: Number(
-        String(produto.avaliacao ?? 0).replace(",", ".")
-      )
+      notaOrdenacao: Number(String(produto.avaliacao ?? 0).replace(",", ".")),
     }))
-    .filter((produto) =>
-      Number.isFinite(produto.notaOrdenacao) &&
-      produto.notaOrdenacao > 0
-    )
+    .filter((produto) => Number.isFinite(produto.notaOrdenacao) && produto.notaOrdenacao > 0)
     .sort((a, b) => {
       return b.notaOrdenacao - a.notaOrdenacao;
     })
@@ -53,7 +47,7 @@ const produtosDestaques = computed(() => {
 const irParaCategoria = (categoria) => {
   router.push({
     path: "/menu",
-    query: { categoria }
+    query: { categoria },
   });
 };
 
@@ -91,17 +85,12 @@ onMounted(() => {
           </h1>
 
           <p>
-            Pães, doces e salgados preparados com cuidado,
-            como aqueles sabores que fazem qualquer momento
-            ficar mais gostoso.
+            Pães, doces e salgados preparados com cuidado, como aqueles sabores que fazem qualquer
+            momento ficar mais gostoso.
           </p>
 
           <div class="hero-acoes">
-            <button
-              type="button"
-              class="hero-btn"
-              @click="irParaMenu"
-            >
+            <button type="button" class="hero-btn" @click="irParaMenu">
               <span>Conheça nosso menu</span>
               <i class="fa-solid fa-arrow-right"></i>
             </button>
@@ -163,9 +152,7 @@ onMounted(() => {
             <em>procurando?</em>
           </h2>
 
-          <span class="titulo-ornamento" aria-hidden="true">
-            ✦
-          </span>
+          <span class="titulo-ornamento" aria-hidden="true"> ✦ </span>
         </div>
       </div>
 
@@ -201,18 +188,12 @@ onMounted(() => {
     <section class="destaques">
       <div class="secao-topo">
         <div>
-          <span class="secao-label">
-            OS MAIS QUERIDINHOS
-          </span>
+          <span class="secao-label"> OS MAIS QUERIDINHOS </span>
 
           <h2>Nossos destaques</h2>
         </div>
 
-        <button
-          type="button"
-          class="ver-todos"
-          @click="irParaMenu"
-        >
+        <button type="button" class="ver-todos" @click="irParaMenu">
           Ver todos
 
           <span>
@@ -221,10 +202,7 @@ onMounted(() => {
         </button>
       </div>
 
-      <div
-        v-if="produtosDestaques.length"
-        class="carrossel-wrapper"
-      >
+      <div v-if="produtosDestaques.length" class="carrossel-wrapper">
         <Swiper
           :modules="modules"
           :slides-per-view="1.35"
@@ -232,80 +210,58 @@ onMounted(() => {
           :pagination="{ clickable: true }"
           :autoplay="{
             delay: 3500,
-            disableOnInteraction: false
+            disableOnInteraction: false,
           }"
           :breakpoints="{
             360: {
               slidesPerView: 1.55,
-              spaceBetween: 13
+              spaceBetween: 13,
             },
             480: {
               slidesPerView: 2.15,
-              spaceBetween: 14
+              spaceBetween: 14,
             },
             768: {
               slidesPerView: 3,
-              spaceBetween: 18
+              spaceBetween: 18,
             },
             1100: {
               slidesPerView: 4,
-              spaceBetween: 20
-            }
+              spaceBetween: 20,
+            },
           }"
           class="meu-carrossel"
         >
-          <SwiperSlide
-            v-for="item in produtosDestaques"
-            :key="item.idProduto ?? item.id"
-          >
+          <SwiperSlide v-for="item in produtosDestaques" :key="item.idProduto ?? item.id">
             <ProductCard :produto="item" />
           </SwiperSlide>
         </Swiper>
       </div>
 
-      <p v-else class="sem-produtos">
-        Ainda não temos produtos avaliados.
-        Confira nosso cardápio!
-      </p>
+      <p v-else class="sem-produtos">Ainda não temos produtos avaliados. Confira nosso cardápio!</p>
     </section>
 
     <!-- FRASE ESPECIAL -->
     <section class="frase-especial">
-      <div
-        class="frase-detalhe detalhe-esquerda"
-        aria-hidden="true"
-      >
-        ✦
-      </div>
+      <div class="frase-detalhe detalhe-esquerda" aria-hidden="true">✦</div>
 
       <div class="frase-conteudo">
         <span>UMA PAUSA PARA O QUE FAZ BEM</span>
 
         <h2>
           Porque os melhores
-          <em>momentos</em> também
-          têm sabor.
+          <em>momentos</em> também têm sabor.
         </h2>
 
-        <p>
-          Escolha seu favorito e deixe o resto com a gente.
-        </p>
+        <p>Escolha seu favorito e deixe o resto com a gente.</p>
 
-        <button
-          type="button"
-          @click="irParaMenu"
-        >
+        <button type="button" @click="irParaMenu">
           Fazer meu pedido
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div
-        class="frase-detalhe detalhe-direita"
-        aria-hidden="true"
-      >
-        ✦
-      </div>
+      <div class="frase-detalhe detalhe-direita" aria-hidden="true">✦</div>
     </section>
 
     <!-- PROMOÇÕES -->
@@ -316,4 +272,4 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped src="@/assets/css/homeView.css"></style>
+<style scoped src="@/assets/css/home-view.css"></style>

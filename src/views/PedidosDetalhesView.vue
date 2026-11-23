@@ -1,16 +1,19 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import "../assets/css/meusPedidosView.css";
+import "../assets/css/meus-pedidos-view.css";
 
 const router = useRouter();
 const route = useRoute();
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(/\/$/, "");
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(
+  /\/$/,
+  "",
+);
 
 const imagensLocais = import.meta.glob("../assets/img/*", {
   eager: true,
   query: "?url",
-  import: "default"
+  import: "default",
 });
 
 const pedidos = ref([]);
@@ -27,7 +30,7 @@ let intervaloAvaliacoes = null;
 const abas = [
   { id: "favoritos", nome: "Favoritos", descricao: "Seus queridinhos", icone: "fa-heart" },
   { id: "avaliados", nome: "Avaliados", descricao: "Suas avaliações", icone: "fa-star" },
-  { id: "preparados", nome: "Preparados", descricao: "Seus pedidos", icone: "fa-utensils" }
+  { id: "preparados", nome: "Preparados", descricao: "Seus pedidos", icone: "fa-utensils" },
 ];
 
 const tipoAtual = computed(() => route.params.tipo);
@@ -73,7 +76,7 @@ const carregarFavoritos = async () => {
     }
 
     const response = await fetch(`${API_URL}/produtos/`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) throw new Error("Não foi possível carregar os favoritos.");
@@ -99,16 +102,14 @@ const removerFavorito = async (produto) => {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ favorito: false })
+      body: JSON.stringify({ favorito: false }),
     });
 
     if (!response.ok) throw new Error("Não foi possível remover o favorito.");
 
-    favoritos.value = favoritos.value.filter(
-      (item) => String(idProduto(item)) !== String(id)
-    );
+    favoritos.value = favoritos.value.filter((item) => String(idProduto(item)) !== String(id));
   } catch (error) {
     console.error("Erro ao remover favorito:", error);
   }
@@ -124,9 +125,9 @@ const produtosComprados = computed(() =>
     (Array.isArray(pedido.itens) ? pedido.itens : []).map((item) => ({
       ...item,
       _pedidoId: idPedido(pedido, index),
-      _dataCompra: pedido.data ?? pedido.dataCompra ?? pedido.criadoEm ?? pedido.created_at
-    }))
-  )
+      _dataCompra: pedido.data ?? pedido.dataCompra ?? pedido.criadoEm ?? pedido.created_at,
+    })),
+  ),
 );
 
 const produtosUnicos = computed(() => {
@@ -151,14 +152,14 @@ const pedidosFormatados = computed(() =>
   pedidos.value.map((pedido, index) => ({
     ...pedido,
     _id: idPedido(pedido, index),
-    _itens: Array.isArray(pedido.itens) ? pedido.itens : []
-  }))
+    _itens: Array.isArray(pedido.itens) ? pedido.itens : [],
+  })),
 );
 
 const avaliacoesComComentario = computed(() =>
   produtosAvaliados.value.filter(
-    (produto) => typeof produto.comentario === "string" && produto.comentario.trim()
-  )
+    (produto) => typeof produto.comentario === "string" && produto.comentario.trim(),
+  ),
 );
 
 const pararRotacaoAvaliacoes = () => {
@@ -173,8 +174,7 @@ const iniciarRotacaoAvaliacoes = () => {
   if (avaliacoesComComentario.value.length <= 1) return;
 
   intervaloAvaliacoes = setInterval(() => {
-    avaliacaoAtual.value =
-      (avaliacaoAtual.value + 1) % avaliacoesComComentario.value.length;
+    avaliacaoAtual.value = (avaliacaoAtual.value + 1) % avaliacoesComComentario.value.length;
   }, 5000);
 };
 
@@ -195,14 +195,14 @@ const formatarData = (data) => {
   return dataObj.toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "2-digit",
-    year: "numeric"
+    year: "numeric",
   });
 };
 
 const formatarPreco = (valor) =>
   Number(valor || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   });
 
 const totalPedido = (pedido) => {
@@ -210,11 +210,13 @@ const totalPedido = (pedido) => {
     return Number(pedido.total) || 0;
   }
 
-  return pedido._itens?.reduce((total, item) => {
-    const preco = Number(item.preco ?? item.valor ?? item.price ?? 0);
-    const quantidade = Number(item.quantidade ?? item.qtd ?? 1);
-    return total + preco * quantidade;
-  }, 0) || 0;
+  return (
+    pedido._itens?.reduce((total, item) => {
+      const preco = Number(item.preco ?? item.valor ?? item.price ?? 0);
+      const quantidade = Number(item.quantidade ?? item.qtd ?? 1);
+      return total + preco * quantidade;
+    }, 0) || 0
+  );
 };
 
 const abrirAvaliacao = (produto) => {
@@ -253,7 +255,7 @@ const salvarAvaliacao = () => {
           ...item,
           avaliado: true,
           nota: notaSelecionada.value,
-          comentario: comentarioAvaliacao.value.trim()
+          comentario: comentarioAvaliacao.value.trim(),
         };
       });
 
@@ -261,7 +263,9 @@ const salvarAvaliacao = () => {
     });
 
     if (!encontrou) {
-      window.alert("Não foi possível localizar esse produto no histórico. Atualize a página e tente novamente.");
+      window.alert(
+        "Não foi possível localizar esse produto no histórico. Atualize a página e tente novamente.",
+      );
       return;
     }
 
@@ -332,7 +336,10 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           <div class="conteudo-topo">
             <div class="conteudo-identidade">
               <div class="icone-conteudo"><i class="fa-solid fa-heart"></i></div>
-              <div><span>SEUS QUERIDINHOS</span><h2>Favoritos</h2></div>
+              <div>
+                <span>SEUS QUERIDINHOS</span>
+                <h2>Favoritos</h2>
+              </div>
             </div>
             <span class="contador">{{ favoritos.length }}</span>
           </div>
@@ -363,8 +370,15 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
                 <h3>{{ produto.nome }}</h3>
                 <strong class="produto-preco">R$ {{ formatarPreco(produto.preco) }}</strong>
                 <div class="produto-acoes">
-                  <button type="button" class="btn-ver-produto" @click="abrirProduto(produto)">Ver produto</button>
-                  <button type="button" class="btn-remover" title="Remover dos favoritos" @click="removerFavorito(produto)">
+                  <button type="button" class="btn-ver-produto" @click="abrirProduto(produto)">
+                    Ver produto
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-remover"
+                    title="Remover dos favoritos"
+                    @click="removerFavorito(produto)"
+                  >
                     <i class="fa-solid fa-heart"></i>
                   </button>
                 </div>
@@ -378,13 +392,17 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           <div class="conteudo-topo">
             <div class="conteudo-identidade">
               <div class="icone-conteudo"><i class="fa-solid fa-star"></i></div>
-              <div><span>SUAS EXPERIÊNCIAS</span><h2>Avaliados</h2></div>
+              <div>
+                <span>SUAS EXPERIÊNCIAS</span>
+                <h2>Avaliados</h2>
+              </div>
             </div>
             <span class="contador">{{ produtosAvaliados.length }}</span>
           </div>
 
           <div v-if="carregando" class="estado-vazio carregando">
-            <i class="fa-solid fa-spinner fa-spin"></i><p>Carregando avaliações...</p>
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Carregando avaliações...</p>
           </div>
 
           <div v-else-if="!produtosAvaliados.length" class="estado-vazio">
@@ -397,17 +415,30 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           </div>
 
           <div v-else class="avaliacoes-lista">
-            <article v-for="produto in produtosAvaliados" :key="`${produto._pedidoId}-${idProduto(produto)}`" class="avaliacao-card">
+            <article
+              v-for="produto in produtosAvaliados"
+              :key="`${produto._pedidoId}-${idProduto(produto)}`"
+              class="avaliacao-card"
+            >
               <div class="avaliacao-produto">
                 <div class="avaliacao-imagem">
-                  <img v-if="getImageUrl(produto)" :src="getImageUrl(produto)" :alt="produto.nome" />
+                  <img
+                    v-if="getImageUrl(produto)"
+                    :src="getImageUrl(produto)"
+                    :alt="produto.nome"
+                  />
                   <i v-else class="fa-solid fa-bread-slice"></i>
                 </div>
                 <div class="avaliacao-info">
                   <span class="avaliacao-label">AVALIADO</span>
                   <h3>{{ produto.nome }}</h3>
                   <div class="estrelas-pequenas">
-                    <i v-for="estrela in 5" :key="estrela" class="fa-solid fa-star" :class="{ vazia: estrela > Number(produto.nota || 0) }"></i>
+                    <i
+                      v-for="estrela in 5"
+                      :key="estrela"
+                      class="fa-solid fa-star"
+                      :class="{ vazia: estrela > Number(produto.nota || 0) }"
+                    ></i>
                   </div>
                 </div>
               </div>
@@ -422,23 +453,42 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           <div v-if="avaliacoesComComentario.length" class="depoimentos">
             <div class="depoimentos-titulo">
               <span class="depoimentos-linha"></span>
-              <div><span class="depoimentos-label">O QUE NOSSOS CLIENTES DIZEM</span><h3>Avaliações especiais</h3></div>
+              <div>
+                <span class="depoimentos-label">O QUE NOSSOS CLIENTES DIZEM</span>
+                <h3>Avaliações especiais</h3>
+              </div>
               <span class="depoimentos-linha"></span>
             </div>
 
             <div class="depoimento-card">
               <Transition name="avaliacao-fade" mode="out-in">
-                <div v-if="avaliacoesComComentario[avaliacaoAtual]" :key="`${avaliacoesComComentario[avaliacaoAtual]._pedidoId}-${idProduto(avaliacoesComComentario[avaliacaoAtual])}`" class="depoimento-conteudo">
+                <div
+                  v-if="avaliacoesComComentario[avaliacaoAtual]"
+                  :key="`${avaliacoesComComentario[avaliacaoAtual]._pedidoId}-${idProduto(avaliacoesComComentario[avaliacaoAtual])}`"
+                  class="depoimento-conteudo"
+                >
                   <div class="depoimento-produto">
                     <div class="depoimento-imagem">
-                      <img v-if="getImageUrl(avaliacoesComComentario[avaliacaoAtual])" :src="getImageUrl(avaliacoesComComentario[avaliacaoAtual])" :alt="avaliacoesComComentario[avaliacaoAtual].nome" />
+                      <img
+                        v-if="getImageUrl(avaliacoesComComentario[avaliacaoAtual])"
+                        :src="getImageUrl(avaliacoesComComentario[avaliacaoAtual])"
+                        :alt="avaliacoesComComentario[avaliacaoAtual].nome"
+                      />
                       <i v-else class="fa-solid fa-bread-slice"></i>
                     </div>
                     <div class="depoimento-produto-info">
                       <span>AVALIAÇÃO</span>
                       <strong>{{ avaliacoesComComentario[avaliacaoAtual].nome }}</strong>
                       <div class="depoimento-estrelas">
-                        <i v-for="estrela in 5" :key="estrela" class="fa-solid fa-star" :class="{ vazia: estrela > Number(avaliacoesComComentario[avaliacaoAtual].nota || 0) }"></i>
+                        <i
+                          v-for="estrela in 5"
+                          :key="estrela"
+                          class="fa-solid fa-star"
+                          :class="{
+                            vazia:
+                              estrela > Number(avaliacoesComComentario[avaliacaoAtual].nota || 0),
+                          }"
+                        ></i>
                       </div>
                     </div>
                   </div>
@@ -469,13 +519,17 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           <div class="conteudo-topo">
             <div class="conteudo-identidade">
               <div class="icone-conteudo"><i class="fa-solid fa-utensils"></i></div>
-              <div><span>SEUS PEDIDOS</span><h2>Preparados</h2></div>
+              <div>
+                <span>SEUS PEDIDOS</span>
+                <h2>Preparados</h2>
+              </div>
             </div>
             <span class="contador">{{ pedidos.length }}</span>
           </div>
 
           <div v-if="carregando" class="estado-vazio carregando">
-            <i class="fa-solid fa-spinner fa-spin"></i><p>Carregando seus pedidos...</p>
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Carregando seus pedidos...</p>
           </div>
 
           <div v-else-if="!pedidos.length" class="estado-vazio">
@@ -489,11 +543,22 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
 
           <div v-else class="preparados-conteudo">
             <div v-if="produtosUnicos.length" class="produtos-comprados">
-              <div class="subtitulo-lista"><span>PRODUTOS</span><h3>O que você já experimentou</h3></div>
+              <div class="subtitulo-lista">
+                <span>PRODUTOS</span>
+                <h3>O que você já experimentou</h3>
+              </div>
               <div class="lista-produtos">
-                <article v-for="produto in produtosUnicos" :key="idProduto(produto)" class="produto-card">
+                <article
+                  v-for="produto in produtosUnicos"
+                  :key="idProduto(produto)"
+                  class="produto-card"
+                >
                   <button type="button" class="produto-imagem" @click="abrirProduto(produto)">
-                    <img v-if="getImageUrl(produto)" :src="getImageUrl(produto)" :alt="produto.nome" />
+                    <img
+                      v-if="getImageUrl(produto)"
+                      :src="getImageUrl(produto)"
+                      :alt="produto.nome"
+                    />
                     <span v-else><i class="fa-solid fa-bread-slice"></i></span>
                   </button>
                   <div class="produto-info">
@@ -510,22 +575,50 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
             </div>
 
             <div class="historico-pedidos">
-              <div class="subtitulo-lista"><span>HISTÓRICO</span><h3>Seus pedidos</h3></div>
-              <article v-for="pedido in pedidosFormatados" :key="pedido._id" class="pedido-historico">
+              <div class="subtitulo-lista">
+                <span>HISTÓRICO</span>
+                <h3>Seus pedidos</h3>
+              </div>
+              <article
+                v-for="pedido in pedidosFormatados"
+                :key="pedido._id"
+                class="pedido-historico"
+              >
                 <div class="pedido-topo">
-                  <div><span class="pedido-label">PEDIDO</span><strong>#{{ pedido.id ?? pedido.idPedido ?? pedido._id }}</strong></div>
-                  <span class="pedido-data">{{ formatarData(pedido.data ?? pedido.dataCompra ?? pedido.criadoEm ?? pedido.created_at) }}</span>
+                  <div>
+                    <span class="pedido-label">PEDIDO</span
+                    ><strong>#{{ pedido.id ?? pedido.idPedido ?? pedido._id }}</strong>
+                  </div>
+                  <span class="pedido-data">{{
+                    formatarData(
+                      pedido.data ?? pedido.dataCompra ?? pedido.criadoEm ?? pedido.created_at,
+                    )
+                  }}</span>
                 </div>
 
                 <div class="pedido-itens">
-                  <div v-for="(item, index) in pedido._itens" :key="item.idProduto ?? item.id ?? index" class="pedido-item">
+                  <div
+                    v-for="(item, index) in pedido._itens"
+                    :key="item.idProduto ?? item.id ?? index"
+                    class="pedido-item"
+                  >
                     <span>{{ item.quantidade ?? item.qtd ?? 1 }}x</span>
                     <strong>{{ item.nome }}</strong>
-                    <small>R$ {{ formatarPreco(Number(item.preco ?? item.valor ?? 0) * Number(item.quantidade ?? item.qtd ?? 1)) }}</small>
+                    <small
+                      >R$
+                      {{
+                        formatarPreco(
+                          Number(item.preco ?? item.valor ?? 0) *
+                            Number(item.quantidade ?? item.qtd ?? 1),
+                        )
+                      }}</small
+                    >
                   </div>
                 </div>
 
-                <div class="pedido-total"><span>Total</span><strong>R$ {{ formatarPreco(totalPedido(pedido)) }}</strong></div>
+                <div class="pedido-total">
+                  <span>Total</span><strong>R$ {{ formatarPreco(totalPedido(pedido)) }}</strong>
+                </div>
               </article>
             </div>
           </div>
@@ -533,7 +626,9 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
 
         <div v-else class="estado-vazio">
           <h3>Área não encontrada</h3>
-          <button type="button" class="btn-acao" @click="mudarAba('preparados')">Ver meus pedidos</button>
+          <button type="button" class="btn-acao" @click="mudarAba('preparados')">
+            Ver meus pedidos
+          </button>
         </div>
       </section>
     </main>
@@ -572,7 +667,11 @@ onBeforeUnmount(pararRotacaoAvaliacoes);
           ></textarea>
           <span class="contador-caracteres">{{ comentarioAvaliacao.length }}/500</span>
 
-          <button type="submit" class="btn-salvar-avaliacao" :disabled="notaSelecionada === 0 || salvandoAvaliacao">
+          <button
+            type="submit"
+            class="btn-salvar-avaliacao"
+            :disabled="notaSelecionada === 0 || salvandoAvaliacao"
+          >
             <i v-if="salvandoAvaliacao" class="fa-solid fa-spinner fa-spin"></i>
             <template v-else>Salvar avaliação <i class="fa-solid fa-arrow-right"></i></template>
           </button>
