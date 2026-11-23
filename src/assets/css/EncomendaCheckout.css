@@ -1449,3 +1449,568 @@
     gap: 12px;
   }
 }
+
+/* =========================================================
+   TELAS DE PROCESSAMENTO E SUCESSO
+   PADARIA MARTINS
+========================================================= */
+
+.checkout-status-screen {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  padding: 40px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 15% 15%,
+      rgba(184, 151, 100, 0.13),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 85% 85%,
+      rgba(94, 48, 35, 0.08),
+      transparent 35%
+    ),
+    #fbf8f3;
+}
+
+.checkout-status-screen::before,
+.checkout-status-screen::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.checkout-status-screen::before {
+  width: 300px;
+  height: 300px;
+  top: -150px;
+  right: -100px;
+  background: rgba(225, 201, 143, 0.13);
+}
+
+.checkout-status-screen::after {
+  width: 260px;
+  height: 260px;
+  bottom: -130px;
+  left: -100px;
+  background: rgba(94, 48, 35, 0.07);
+}
+
+.status-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 540px;
+  padding: 48px 42px;
+  border: 1px solid rgba(184, 151, 100, 0.2);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 24px 70px rgba(70, 43, 27, 0.09),
+    0 4px 15px rgba(70, 43, 27, 0.035);
+  text-align: center;
+  animation: statusCardEnter 0.65s ease both;
+}
+
+@keyframes statusCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-card .eyebrow {
+  display: inline-block;
+  margin-bottom: 15px;
+  color: #b89764;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 3px;
+}
+
+.status-card h1 {
+  margin: 0 0 14px;
+  color: #5e3023;
+  font-size: clamp(1.65rem, 5vw, 2.15rem);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.status-card > p {
+  max-width: 390px;
+  margin: 0 auto;
+  color: #82766d;
+  font-size: 0.94rem;
+  line-height: 1.75;
+}
+
+/* =========================================================
+   PROCESSAMENTO
+========================================================= */
+
+.loading-animation {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-ring {
+  position: absolute;
+  inset: 0;
+  border: 4px solid #f0e6d7;
+  border-top-color: #b89764;
+  border-right-color: #5e3023;
+  border-radius: 50%;
+  animation: loadingRotate 1.15s linear infinite;
+}
+
+.loading-symbol {
+  color: #b89764;
+  font-size: 2.2rem;
+  animation: loadingPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes loadingRotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loadingPulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(0.88);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.processing-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-top: 34px;
+  padding: 24px;
+  border: 1px solid #eee5d9;
+  border-radius: 18px;
+  background: #fdfbf8;
+  text-align: left;
+}
+
+.processing-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.processing-step > span:first-child {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eee9df;
+  color: #8a7968;
+  font-weight: 800;
+}
+
+.processing-step.completed > span:first-child {
+  background: #e9efe5;
+  color: #627d58;
+}
+
+.processing-step.active > span:first-child {
+  background: #f4ead9;
+}
+
+.processing-step div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.processing-step strong {
+  color: #5e3023;
+  font-size: 0.9rem;
+}
+
+.processing-step small {
+  color: #94877b;
+  font-size: 0.77rem;
+}
+
+.mini-loader {
+  width: 34px;
+  height: 34px;
+  border: 3px solid #eadcc5;
+  border-top-color: #b89764;
+  border-radius: 50%;
+  animation: loadingRotate 0.85s linear infinite;
+}
+
+.processing-footer {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #9a8977;
+  font-size: 0.8rem;
+}
+
+.processing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b89764;
+  animation: loadingPulse 1s ease-in-out infinite;
+}
+
+/* =========================================================
+   SUCESSO
+========================================================= */
+
+.success-card {
+  max-width: 560px;
+}
+
+.success-animation {
+  margin: 0 auto 27px;
+  display: flex;
+  justify-content: center;
+}
+
+.success-circle {
+  width: 92px;
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #dce8d6;
+  border-radius: 50%;
+  background: #edf4e9;
+  color: #66865b;
+  animation: successPop 0.6s cubic-bezier(0.2, 1.4, 0.5, 1) both;
+}
+
+.success-circle span {
+  font-size: 3rem;
+  font-weight: 700;
+  animation: successCheck 0.4s ease 0.25s both;
+}
+
+@keyframes successPop {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes successCheck {
+  from {
+    opacity: 0;
+    transform: scale(0.4) rotate(-25deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.success-divider {
+  width: 54px;
+  height: 2px;
+  margin: 27px auto;
+  border-radius: 10px;
+  background: #e1c98f;
+}
+
+.success-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 20px;
+  border: 1px solid #eee6dc;
+  border-radius: 18px;
+  background: #fdfbf8;
+  text-align: left;
+}
+
+.success-detail {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 0;
+  border-bottom: 1px solid #eee9e2;
+}
+
+.success-detail:last-child {
+  border-bottom: none;
+}
+
+.detail-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #f2e9dc;
+  color: #8b6746;
+  font-size: 1.2rem;
+}
+
+.success-detail div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.success-detail small {
+  color: #998b7e;
+  font-size: 0.76rem;
+}
+
+.success-detail strong {
+  overflow-wrap: anywhere;
+  color: #5e3023;
+  font-size: 0.91rem;
+}
+
+.success-total {
+  margin-top: 20px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  border-radius: 15px;
+  background: #5e3023;
+  color: #fff;
+  text-align: left;
+}
+
+.success-total span {
+  font-size: 0.86rem;
+  color: #ead9c8;
+}
+
+.success-total strong {
+  font-size: 1.2rem;
+  white-space: nowrap;
+  color: #e1c98f;
+}
+
+.success-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 22px 0;
+  padding: 15px;
+  border-radius: 13px;
+  background: #f7f1e7;
+  text-align: left;
+}
+
+.success-message > span {
+  color: #b89764;
+  font-size: 1.1rem;
+}
+
+.success-message p {
+  margin: 0;
+  color: #817366;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+/* BOTÃO DE VOLTAR AO INÍCIO */
+
+.success-home-button {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: none;
+  border-radius: 13px;
+  background: #5e3023;
+  color: #fff;
+  font-size: 0.91rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.success-home-button:hover {
+  background: #754331;
+  transform: translateY(-2px);
+  box-shadow: 0 9px 22px rgba(94, 48, 35, 0.17);
+}
+
+.success-home-button span {
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+.success-home-button:hover span {
+  transform: translateX(4px);
+}
+
+/* =========================================================
+   ERRO DE FINALIZAÇÃO
+========================================================= */
+
+.finalization-error {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #edcaca;
+  border-radius: 12px;
+  background: #fff4f2;
+  color: #a33e35;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   ESTADOS DESABILITADOS
+========================================================= */
+
+.navigation button:disabled,
+.confirm-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* =========================================================
+   RESPONSIVIDADE MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+  .checkout-status-screen {
+    min-height: 100dvh;
+    padding: 22px 14px;
+  }
+
+  .status-card {
+    padding: 35px 21px;
+    border-radius: 22px;
+  }
+
+  .status-card h1 {
+    font-size: 1.65rem;
+  }
+
+  .status-card > p {
+    font-size: 0.87rem;
+  }
+
+  .loading-animation {
+    width: 88px;
+    height: 88px;
+    margin-bottom: 24px;
+  }
+
+  .loading-symbol {
+    font-size: 1.9rem;
+  }
+
+  .processing-steps {
+    padding: 18px 14px;
+    gap: 19px;
+  }
+
+  .processing-step strong {
+    font-size: 0.83rem;
+  }
+
+  .processing-step small {
+    font-size: 0.71rem;
+  }
+
+  .success-circle {
+    width: 82px;
+    height: 82px;
+  }
+
+  .success-circle span {
+    font-size: 2.6rem;
+  }
+
+  .success-details {
+    padding: 6px 14px;
+  }
+
+  .success-detail {
+    gap: 12px;
+    padding: 13px 0;
+  }
+
+  .detail-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .success-detail strong {
+    font-size: 0.84rem;
+  }
+
+  .success-total {
+    padding: 17px 14px;
+  }
+
+  .success-total strong {
+    font-size: 1.05rem;
+  }
+
+  .success-home-button {
+    min-height: 51px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-status-screen *,
+  .checkout-status-screen *::before,
+  .checkout-status-screen *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
