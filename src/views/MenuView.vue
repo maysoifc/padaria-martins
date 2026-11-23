@@ -119,4 +119,4 @@ onMounted(async () => {
   </div>
 </template>
 
-<style scoped src="@/assets/css/MenuView.css"></style>
+<style scoped src="@/assets/css/menuView.css"></style>

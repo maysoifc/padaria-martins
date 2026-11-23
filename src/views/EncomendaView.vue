@@ -164,4 +164,4 @@ const irParaEncomenda = () => {
   </div>
 </template>
 
-<style scoped src="@/assets/css/EncomendaLanding.css"></style>
+<style scoped src="@/assets/css/encomendaLanding.css"></style>

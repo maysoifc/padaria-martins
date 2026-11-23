@@ -1,7 +1,7 @@
 
 <script setup>
 import { ref, onBeforeUnmount } from "vue";
-import "@/assets/css/Historia.css";
+import "@/assets/css/historia.css";
 
 const historiaAberta = ref(false);
 

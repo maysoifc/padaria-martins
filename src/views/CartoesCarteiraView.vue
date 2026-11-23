@@ -2,7 +2,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import "@/assets/css/Carteira.css";
+import "@/assets/css/carteira.css";
 
 const router = useRouter();
 const CHAVE_CARTOES = "cartoesPagamento";

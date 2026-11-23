@@ -4,7 +4,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useProducts } from "@/composables/useProducts";
 import CategoryBar from "@/components/CategoryBar.vue";
-import "@/assets/css/EncomendaOpcoes.css";
+import "@/assets/css/encomendaOpcoes.css";
 
 const router = useRouter();
 const { produtos, carregarProdutos } = useProducts();

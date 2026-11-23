@@ -254,4 +254,4 @@ onMounted(carregarPedidos);
   </div>
 </template>
 
-<style scoped src="@/assets/css/ComprarNovamenteView.css"></style>
+<style scoped src="@/assets/css/comprarNovamenteView.css"></style>

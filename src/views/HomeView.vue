@@ -316,4 +316,4 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped src="@/assets/css/HomeView.css"></style>
+<style scoped src="@/assets/css/homeView.css"></style>

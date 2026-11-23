@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import "../assets/css/MeusPedidosView.css";
+import "../assets/css/meusPedidosView.css";
 
 const router = useRouter();
 const route = useRoute();

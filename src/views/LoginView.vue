@@ -257,4 +257,4 @@ const irParaCadastro = () => {
   </div>
 </template>
 
-<style scoped src="@/assets/css/LoginView.css"></style>
+<style scoped src="@/assets/css/loginView.css"></style>

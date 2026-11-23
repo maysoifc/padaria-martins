@@ -176,4 +176,4 @@ const grupos = [
   </div>
 </template>
 
-<style scoped src="@/assets/css/PerfilView.css"></style>
+<style scoped src="@/assets/css/perfilView.css"></style>

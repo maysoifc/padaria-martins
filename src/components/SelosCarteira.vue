@@ -2,7 +2,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import "@/assets/css/MeusSelos.css";
+import "@/assets/css/meusSelos.css";
 
 const router = useRouter();
 const totalSelos = 10;

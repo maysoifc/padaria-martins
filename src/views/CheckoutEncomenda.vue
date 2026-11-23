@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFidelidade } from '@/composables/useFidelidade';
 import PagamentoCartao from '@/components/PagamentoCartao.vue';
-import '@/assets/css/EncomendaCheckout.css';
+import '@/assets/css/encomendaCheckout.css';
 
 const router = useRouter();
 const { adicionarSelo } = useFidelidade();
