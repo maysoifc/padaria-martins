@@ -583,3 +583,478 @@ button:disabled {
   .barra-compra { gap: 8px; padding-right: 10px; padding-left: 10px; }
   .botao-adicionar { gap: 6px; font-size: 11px; }
 }
+/* ========================================
+   AVALIAÇÕES DO PRODUTO
+======================================== */
+
+.avaliacoes-produto {
+  margin-top: 22px;
+  padding: 17px;
+  border: 1px solid #eee5d9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 15px rgba(94, 48, 35, 0.04);
+  box-sizing: border-box;
+}
+
+.avaliacoes-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.avaliacoes-cabecalho .titulo-secao {
+  margin: 0;
+}
+
+.avaliacoes-cabecalho .titulo-secao h2 {
+  font-size: 1.05rem;
+}
+
+.avaliacao-aspas {
+  color: #d8c19b;
+  font-size: 19px;
+}
+
+/* RESUMO */
+
+.resumo-avaliacoes {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fbf8f3;
+}
+
+.media-grande {
+  color: #5e3023;
+  font-family: "Imprima", Georgia, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.media-detalhes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.media-estrelas {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.media-estrelas i {
+  color: #ded4c6;
+  font-size: 11px;
+}
+
+.media-estrelas i.ativa {
+  color: #c69b50;
+}
+
+.media-detalhes span {
+  color: #8b7c70;
+  font-size: 0.67rem;
+}
+
+/* AVALIAÇÃO EM DESTAQUE */
+
+.avaliacao-destaque {
+  margin-top: 12px;
+  padding: 15px;
+  border: 1px solid #f0e7db;
+  border-radius: 12px;
+  background: #fffdf9;
+}
+
+.avaliacao-estrelas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+
+.avaliacao-estrelas i {
+  color: #ded4c6;
+  font-size: 11px;
+}
+
+.avaliacao-estrelas i.ativa {
+  color: #c69b50;
+}
+
+.avaliacao-comentario {
+  margin: 0 0 13px;
+  color: #6e5b4e;
+  font-size: 0.79rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.avaliacao-cliente {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid #f0e8de;
+}
+
+.cliente-icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 31px;
+  height: 31px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #f3e8d9;
+  color: #8a6245;
+  font-size: 11px;
+}
+
+.avaliacao-cliente div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.avaliacao-cliente strong {
+  color: #5e3023;
+  font-size: 0.72rem;
+}
+
+.avaliacao-cliente small {
+  color: #9b8c7f;
+  font-size: 0.61rem;
+}
+
+/* INDICADORES */
+
+.avaliacao-indicadores {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.avaliacao-indicadores button {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: #d9cbb9;
+  cursor: pointer;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.avaliacao-indicadores button.ativo {
+  width: 19px;
+  background: #8a6042;
+}
+
+/* ESTADO VAZIO */
+
+.avaliacao-vazia {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px 12px;
+  margin-top: 12px;
+  border: 1px dashed #e9ddcd;
+  border-radius: 12px;
+  background: #fdfbf8;
+  text-align: center;
+}
+
+.avaliacao-vazia > i {
+  color: #c4a779;
+  font-size: 22px;
+}
+
+.avaliacao-vazia p {
+  margin: 0;
+  color: #6e5b4e;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.avaliacao-vazia small {
+  color: #a09286;
+  font-size: 0.65rem;
+}
+
+.avaliacao-vazia .carregamento-spinner {
+  width: 22px;
+  height: 22px;
+}
+
+/* ========================================
+   FORMULÁRIO DE AVALIAÇÃO
+======================================== */
+
+.formulario-avaliacao {
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid #eee5d9;
+}
+
+.formulario-avaliacao .titulo-secao {
+  margin-bottom: 5px;
+}
+
+.formulario-avaliacao .titulo-secao h2 {
+  font-size: 1rem;
+}
+
+.formulario-descricao {
+  margin: 5px 0 12px;
+  color: #928277;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+/* SELETOR DE ESTRELAS */
+
+.seletor-estrelas {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.seletor-estrelas button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid #eee3d5;
+  border-radius: 8px;
+  background: #fbf8f3;
+  color: #d8cbb8;
+  font-size: 13px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.seletor-estrelas button.selecionada {
+  border-color: #e6cf9e;
+  background: #f8efdd;
+  color: #c69b50;
+}
+
+.seletor-estrelas button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #c69b50;
+}
+
+.seletor-estrelas button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.nota-selecionada {
+  display: inline-block;
+  margin-bottom: 11px;
+  color: #a4865c;
+  font-size: 0.64rem;
+}
+
+/* CAMPO DE COMENTÁRIO */
+
+.label-comentario {
+  display: block;
+  margin: 11px 0 6px;
+  color: #654332;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.formulario-avaliacao textarea {
+  display: block;
+  width: 100%;
+  min-height: 85px;
+  padding: 10px 11px;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #e9dfd3;
+  border-radius: 10px;
+  outline: none;
+  background: #fdfbf8;
+  color: #5e3023;
+  font-family: inherit;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.formulario-avaliacao textarea::placeholder {
+  color: #b4a79a;
+}
+
+.formulario-avaliacao textarea:focus {
+  border-color: #b89764;
+  box-shadow: 0 0 0 3px rgba(184, 151, 100, 0.12);
+}
+
+.formulario-avaliacao textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.contador-comentario {
+  margin-top: 5px;
+  color: #a99a8d;
+  font-size: 0.59rem;
+  text-align: right;
+}
+
+/* BOTÃO PUBLICAR */
+
+.botao-enviar-avaliacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 10px;
+  background: #5e3023;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 5px 13px rgba(94, 48, 35, 0.12);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.botao-enviar-avaliacao:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: #74432f;
+}
+
+.botao-enviar-avaliacao:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.botao-enviar-avaliacao i {
+  font-size: 11px;
+}
+
+.aviso-login-avaliacao {
+  display: block;
+  margin-top: 9px;
+  color: #a29488;
+  font-size: 0.61rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* TRANSIÇÃO DAS AVALIAÇÕES */
+
+.avaliacao-enter-active,
+.avaliacao-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.avaliacao-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.avaliacao-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* ========================================
+   RESPONSIVIDADE
+======================================== */
+
+@media (max-width: 500px) {
+  .avaliacoes-produto {
+    margin-top: 17px;
+    padding: 13px;
+    border-radius: 13px;
+  }
+
+  .avaliacoes-cabecalho {
+    margin-bottom: 11px;
+  }
+
+  .avaliacoes-cabecalho .titulo-secao h2 {
+    font-size: 0.94rem;
+  }
+
+  .avaliacao-aspas {
+    font-size: 16px;
+  }
+
+  .resumo-avaliacoes {
+    gap: 10px;
+    padding: 10px 12px;
+  }
+
+  .media-grande {
+    font-size: 1.8rem;
+  }
+
+  .media-estrelas i {
+    font-size: 10px;
+  }
+
+  .media-detalhes span {
+    font-size: 0.62rem;
+  }
+
+  .avaliacao-destaque {
+    padding: 12px;
+  }
+
+  .avaliacao-comentario {
+    font-size: 0.74rem;
+  }
+
+  .formulario-avaliacao {
+    margin-top: 14px;
+    padding-top: 13px;
+  }
+
+  .formulario-avaliacao .titulo-secao h2 {
+    font-size: 0.93rem;
+  }
+
+  .formulario-descricao {
+    font-size: 0.66rem;
+  }
+
+  .seletor-estrelas button {
+    width: 29px;
+    height: 29px;
+    font-size: 12px;
+  }
+
+  .formulario-avaliacao textarea {
+    min-height: 78px;
+    font-size: 0.71rem;
+  }
+
+  .botao-enviar-avaliacao {
+    min-height: 38px;
+    font-size: 0.67rem;
+  }
+}
