@@ -1,5 +1,6 @@
+
 <script setup>
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useProducts } from "@/composables/useProducts";
 import ProductCard from "@/components/ProductCard.vue";
@@ -12,10 +13,12 @@ import "swiper/css";
 import "swiper/css/pagination";
 
 const router = useRouter();
+
 const { produtos, carregarProdutos } = useProducts();
 
 const modules = [Pagination, Autoplay];
 
+// Categorias
 const categorias = [
   { nome: "Pães", icone: "fa-bread-slice" },
   { nome: "Doces", icone: "fa-cookie-bite" },
@@ -23,6 +26,30 @@ const categorias = [
   { nome: "Bebidas", icone: "fa-mug-hot" }
 ];
 
+// Seleciona os 7 produtos mais bem avaliados
+const produtosDestaques = computed(() => {
+  if (!Array.isArray(produtos.value)) {
+    return [];
+  }
+
+  return [...produtos.value]
+    .map((produto) => ({
+      ...produto,
+      notaOrdenacao: Number(
+        String(produto.avaliacao ?? 0).replace(",", ".")
+      )
+    }))
+    .filter((produto) =>
+      Number.isFinite(produto.notaOrdenacao) &&
+      produto.notaOrdenacao > 0
+    )
+    .sort((a, b) => {
+      return b.notaOrdenacao - a.notaOrdenacao;
+    })
+    .slice(0, 7);
+});
+
+// Navegação
 const irParaCategoria = (categoria) => {
   router.push({
     path: "/menu",
@@ -34,6 +61,7 @@ const irParaMenu = () => {
   router.push("/menu");
 };
 
+// Carregamento
 onMounted(() => {
   carregarProdutos();
 });
@@ -41,6 +69,7 @@ onMounted(() => {
 
 <template>
   <div class="home">
+    <!-- HERO -->
     <section class="hero">
       <div class="hero-fundo" aria-hidden="true">
         <span class="decor decor-1"></span>
@@ -123,6 +152,7 @@ onMounted(() => {
       </div>
     </section>
 
+    <!-- CATEGORIAS -->
     <section class="atalhos">
       <div class="atalhos-cabecalho">
         <span>PARA CADA MOMENTO</span>
@@ -133,7 +163,9 @@ onMounted(() => {
             <em>procurando?</em>
           </h2>
 
-          <span class="titulo-ornamento" aria-hidden="true">✦</span>
+          <span class="titulo-ornamento" aria-hidden="true">
+            ✦
+          </span>
         </div>
       </div>
 
@@ -165,11 +197,15 @@ onMounted(() => {
       </div>
     </section>
 
+    <!-- DESTAQUES -->
     <section class="destaques">
       <div class="secao-topo">
         <div>
-          <span class="secao-label">ESCOLHIDOS PARA VOCÊ</span>
-          <h2>Nossos queridinhos</h2>
+          <span class="secao-label">
+            OS MAIS QUERIDINHOS
+          </span>
+
+          <h2>Nossos destaques</h2>
         </div>
 
         <button
@@ -185,7 +221,10 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="produtos.length" class="carrossel-wrapper">
+      <div
+        v-if="produtosDestaques.length"
+        class="carrossel-wrapper"
+      >
         <Swiper
           :modules="modules"
           :slides-per-view="1.35"
@@ -216,8 +255,8 @@ onMounted(() => {
           class="meu-carrossel"
         >
           <SwiperSlide
-            v-for="item in produtos"
-            :key="item.idProduto"
+            v-for="item in produtosDestaques"
+            :key="item.idProduto ?? item.id"
           >
             <ProductCard :produto="item" />
           </SwiperSlide>
@@ -225,10 +264,12 @@ onMounted(() => {
       </div>
 
       <p v-else class="sem-produtos">
-        Os produtos estão sendo preparados. Volte em instantes!
+        Ainda não temos produtos avaliados.
+        Confira nosso cardápio!
       </p>
     </section>
 
+    <!-- FRASE ESPECIAL -->
     <section class="frase-especial">
       <div
         class="frase-detalhe detalhe-esquerda"
@@ -250,7 +291,10 @@ onMounted(() => {
           Escolha seu favorito e deixe o resto com a gente.
         </p>
 
-        <button type="button" @click="irParaMenu">
+        <button
+          type="button"
+          @click="irParaMenu"
+        >
           Fazer meu pedido
           <i class="fa-solid fa-arrow-right"></i>
         </button>
@@ -264,7 +308,10 @@ onMounted(() => {
       </div>
     </section>
 
+    <!-- PROMOÇÕES -->
     <Promocoes />
+
+    <!-- SOBRE NÓS -->
     <SobreNos />
   </div>
 </template>
