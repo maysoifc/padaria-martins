@@ -119,6 +119,20 @@ const router = createRouter({
       component: () => import("../views/CartoesCarteiraView.vue"),
       meta: { hideNav: true },
     },
+
+    // =========================================
+    // MEU PIX - DEMONSTRAÇÃO
+    // =========================================
+    {
+      path: "/detalhes/carteira/pix",
+      name: "meu-pix",
+      component: () => import("../views/MeuPixView.vue"),
+      meta: { hideNav: true },
+    },
+
+    // =========================================
+    // DETALHES GERAIS
+    // =========================================
     {
       path: "/detalhes/:grupo/:tipo",
       name: "detalhes-geral",
@@ -207,7 +221,7 @@ router.beforeEach((to) => {
     return { name: "AdminLogin" };
   }
 
-  // Impede que um administrador autenticado volte ao login
+  // Impede que administrador autenticado volte ao login
   if (exigeVisitante && adminToken) {
     return { name: "AdminDashboard" };
   }
