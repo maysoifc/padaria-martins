@@ -1,28 +1,82 @@
+
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue';
+import {
+  ref,
+  computed,
+  onMounted,
+  watch,
+  onBeforeUnmount
+} from 'vue';
+
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/composables/useCart';
 import { useFidelidade } from '@/composables/useFidelidade';
 import PagamentoCartao from '@/components/PagamentoCartao.vue';
 
 const router = useRouter();
-
 const { removerItens } = useCartStore();
-const { adicionarSelo } = useFidelidade();
+
+const { validarCupom, recarregar } = useFidelidade();
+
+/* =========================================
+   API
+========================================= */
+
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://127.0.0.1:8000/api'
+).replace(/\/+$/, '');
+
+const obterToken = () => localStorage.getItem('token');
+
+const obterIdProduto = (item) => (
+  item.idProduto ??
+  item.produto?.idProduto ??
+  item.produto?.id ??
+  item.produto_id ??
+  item.id
+);
+
+/* =========================================
+   ESTADOS PRINCIPAIS
+========================================= */
+
+const CHAVE_PIX = 'pixPendente';
+const TEMPO_PIX = 3 * 60 * 60 * 1000;
 
 const itensCompra = ref([]);
 const etapaAtual = ref(1);
 const erro = ref('');
+
 const cartaoSelecionado = ref(null);
 
 const statusFinalizacao = ref('ocioso');
+const mensagemCupom = ref('');
+const tipoMensagemCupom = ref('');
+
+const codigoCupom = ref('');
+const cupomAplicado = ref(null);
+
+const pixCodigoCopiaCola = ref('');
+const pixExpiraEm = ref(null);
+const tempoRestantePix = ref('03:00:00');
+const mensagemPix = ref('');
+
+const pedidoConcluido = ref(false);
+const compraRegistrada = ref(null);
+
 let timerFinalizacao = null;
+let timerPix = null;
 
 const form = ref({
   nome: '',
   telefone: '',
   formaPagamento: 'pix'
 });
+
+/* =========================================
+   ETAPAS
+========================================= */
 
 const etapas = {
   1: 'Seu pedido',
@@ -37,6 +91,10 @@ const progressoPercent = computed(() => {
   return (etapaAtual.value / 4) * 100;
 });
 
+/* =========================================
+   VALORES DO PEDIDO
+========================================= */
+
 const quantidadeTotal = computed(() => {
   return itensCompra.value.reduce((total, item) => {
     return total + Number(item.quantidade || 1);
@@ -45,13 +103,145 @@ const quantidadeTotal = computed(() => {
 
 const subtotal = computed(() => {
   return itensCompra.value.reduce((total, item) => {
-    return (
-      total +
+    return total +
       Number(item.preco || 0) *
-      Number(item.quantidade || 1)
-    );
+      Number(item.quantidade || 1);
   }, 0);
 });
+
+/* =========================================
+   CUPONS DE DESCONTO
+========================================= */
+
+const valorDescontoCupom = computed(() => {
+  const cupom = cupomAplicado.value;
+
+  if (!cupom || cupom.tipo !== 'desconto') {
+    return 0;
+  }
+
+  const texto = `${cupom.titulo || ''} ${cupom.descricao || ''}`;
+
+  const percentual = texto.match(/(\d+(?:[.,]\d+)?)\s*%/);
+
+  if (percentual) {
+    const porcentagem = Number(
+      percentual[1].replace(',', '.')
+    );
+
+    if (Number.isFinite(porcentagem) && porcentagem > 0) {
+      return Math.min(
+        subtotal.value,
+        subtotal.value * (porcentagem / 100)
+      );
+    }
+  }
+
+  const valorFixo = texto.match(
+    /R\$\s*(\d+(?:[.,]\d{1,2})?)/
+  );
+
+  if (valorFixo) {
+    const valor = Number(
+      valorFixo[1].replace(',', '.')
+    );
+
+    if (Number.isFinite(valor) && valor > 0) {
+      return Math.min(subtotal.value, valor);
+    }
+  }
+
+  return 0;
+});
+
+const subtotalComDesconto = computed(() => {
+  return Math.max(
+    0,
+    subtotal.value - valorDescontoCupom.value
+  );
+});
+
+const aplicarCupom = async () => {
+  mensagemCupom.value = '';
+  tipoMensagemCupom.value = '';
+
+  const codigo = codigoCupom.value.trim();
+
+  if (!codigo) {
+    mensagemCupom.value = 'Informe o código do cupom.';
+    tipoMensagemCupom.value = 'erro';
+    return;
+  }
+
+  if (cupomAplicado.value) {
+    mensagemCupom.value =
+      'Remova o cupom atual antes de aplicar outro.';
+    tipoMensagemCupom.value = 'erro';
+    return;
+  }
+
+  try {
+    const resultado = await validarCupom(codigo);
+
+    if (!resultado?.valido || !resultado.cupom) {
+      mensagemCupom.value =
+        resultado?.mensagem ||
+        'Não foi possível validar esse cupom.';
+
+      tipoMensagemCupom.value = 'erro';
+      return;
+    }
+
+    if (resultado.cupom.tipo !== 'desconto') {
+      mensagemCupom.value =
+        'Este cupom é válido para resgate de produto e não pode ser usado como desconto nesta compra.';
+
+      tipoMensagemCupom.value = 'erro';
+      return;
+    }
+
+    cupomAplicado.value = resultado.cupom;
+
+    if (valorDescontoCupom.value <= 0) {
+      cupomAplicado.value = null;
+
+      mensagemCupom.value =
+        'Não foi possível identificar o valor deste desconto. Confira a descrição do cupom.';
+
+      tipoMensagemCupom.value = 'erro';
+      return;
+    }
+
+    codigoCupom.value = resultado.cupom.codigo;
+
+    mensagemCupom.value = 'Cupom aplicado com sucesso!';
+    tipoMensagemCupom.value = 'sucesso';
+
+  } catch (e) {
+    console.error('Erro ao validar cupom:', e);
+
+    mensagemCupom.value =
+      e.message || 'Não foi possível validar o cupom.';
+
+    tipoMensagemCupom.value = 'erro';
+  }
+};
+
+const removerCupom = () => {
+  cupomAplicado.value = null;
+  codigoCupom.value = '';
+  mensagemCupom.value = 'Cupom removido.';
+  tipoMensagemCupom.value = 'sucesso';
+};
+
+const limparMensagemCupom = () => {
+  mensagemCupom.value = '';
+  tipoMensagemCupom.value = '';
+};
+
+/* =========================================
+   CARTÃO E PARCELAMENTO
+========================================= */
 
 const parcelasCartao = computed(() => {
   if (form.value.formaPagamento !== 'cartao') {
@@ -60,36 +250,16 @@ const parcelasCartao = computed(() => {
 
   const cartao = cartaoSelecionado.value;
 
-  const parcelas =
-    Number(
-      cartao?.parcelas ??
-      cartao?.parcelamento ??
-      cartao?.numeroParcelas ??
-      1
-    );
+  const parcelas = Number(
+    cartao?.parcelas ??
+    cartao?.parcelamento ??
+    cartao?.numeroParcelas ??
+    1
+  );
 
   return Number.isFinite(parcelas) && parcelas > 0
     ? parcelas
     : 1;
-});
-
-const valorParcela = computed(() => {
-  if (form.value.formaPagamento !== 'cartao') {
-    return subtotal.value;
-  }
-
-  const valorSalvo = Number(
-    cartaoSelecionado.value?.valorParcela
-  );
-
-  if (
-    Number.isFinite(valorSalvo) &&
-    valorSalvo > 0
-  ) {
-    return valorSalvo;
-  }
-
-  return subtotal.value / parcelasCartao.value;
 });
 
 const jurosCartao = computed(() => {
@@ -108,21 +278,18 @@ const jurosCartao = computed(() => {
 
 const totalComJuros = computed(() => {
   if (form.value.formaPagamento !== 'cartao') {
-    return subtotal.value;
+    return subtotalComDesconto.value;
   }
 
-  const totalSalvo = Number(
-    cartaoSelecionado.value?.totalComJuros
-  );
+  return subtotalComDesconto.value + jurosCartao.value;
+});
 
-  if (
-    Number.isFinite(totalSalvo) &&
-    totalSalvo > 0
-  ) {
-    return totalSalvo;
+const valorParcela = computed(() => {
+  if (form.value.formaPagamento !== 'cartao') {
+    return subtotalComDesconto.value;
   }
 
-  return subtotal.value + jurosCartao.value;
+  return totalComJuros.value / parcelasCartao.value;
 });
 
 const textoParcelas = computed(() => {
@@ -152,6 +319,10 @@ const cartaoResumo = computed(() => {
   };
 });
 
+/* =========================================
+   PAGAMENTO FORMATADO
+========================================= */
+
 const pagamentoFormatado = computed(() => {
   if (form.value.formaPagamento === 'pix') {
     return 'PIX';
@@ -172,6 +343,10 @@ const pagamentoFormatado = computed(() => {
   return 'Não informado';
 });
 
+/* =========================================
+   CARREGAMENTO DE DADOS
+========================================= */
+
 const carregarItensCompra = () => {
   try {
     const dados = localStorage.getItem('itensCheckout');
@@ -186,6 +361,7 @@ const carregarItensCompra = () => {
     itensCompra.value = Array.isArray(itens)
       ? itens
       : [];
+
   } catch {
     itensCompra.value = [];
   }
@@ -195,9 +371,7 @@ const carregarDadosCliente = () => {
   try {
     const dados = localStorage.getItem('dadosCliente');
 
-    if (!dados) {
-      return;
-    }
+    if (!dados) return;
 
     const cliente = JSON.parse(dados);
 
@@ -208,6 +382,7 @@ const carregarDadosCliente = () => {
     if (cliente?.telefone) {
       form.value.telefone = cliente.telefone;
     }
+
   } catch {
     return;
   }
@@ -233,12 +408,8 @@ const carregarCartaoPrincipal = () => {
       cartao => cartao.principal === true
     );
 
-    if (principal) {
-      cartaoSelecionado.value = principal;
-      return;
-    }
+    cartaoSelecionado.value = principal || null;
 
-    cartaoSelecionado.value = null;
   } catch {
     cartaoSelecionado.value = null;
   }
@@ -254,10 +425,12 @@ const salvarDadosCliente = () => {
   );
 };
 
+/* =========================================
+   UTILITÁRIOS
+========================================= */
+
 const getImageUrl = (nomeImagem) => {
-  if (!nomeImagem) {
-    return '';
-  }
+  if (!nomeImagem) return '';
 
   try {
     return new URL(
@@ -299,6 +472,10 @@ const limparErro = () => {
   erro.value = '';
 };
 
+/* =========================================
+   VALIDAÇÃO DAS ETAPAS
+========================================= */
+
 const validarEtapa = () => {
   limparErro();
 
@@ -312,8 +489,7 @@ const validarEtapa = () => {
 
   if (etapaAtual.value === 2) {
     if (!form.value.nome.trim()) {
-      erro.value =
-        'Informe seu nome para continuar.';
+      erro.value = 'Informe seu nome para continuar.';
       return false;
     }
 
@@ -331,8 +507,7 @@ const validarEtapa = () => {
 
   if (etapaAtual.value === 3) {
     if (!form.value.formaPagamento) {
-      erro.value =
-        'Selecione uma forma de pagamento.';
+      erro.value = 'Selecione uma forma de pagamento.';
       return false;
     }
 
@@ -350,9 +525,7 @@ const validarEtapa = () => {
 };
 
 const proximaEtapa = () => {
-  if (!validarEtapa()) {
-    return;
-  }
+  if (!validarEtapa()) return;
 
   if (etapaAtual.value < 4) {
     etapaAtual.value++;
@@ -378,25 +551,94 @@ const etapaAnterior = () => {
 };
 
 const voltarCarrinho = () => {
-  router.push({
-    name: 'carrinho'
-  });
+  router.push({ name: 'carrinho' });
 };
 
-const gerarIdPedido = () => {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return crypto.randomUUID();
+/* =========================================
+   REGISTRAR COMPRA NO DJANGO
+========================================= */
+
+const registrarCompraNoServidor = async () => {
+  const token = obterToken();
+
+  if (!token) {
+    throw new Error(
+      'Sua sessão expirou. Entre novamente na sua conta.'
+    );
   }
 
-  return `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
+  const itens = itensCompra.value.map(item => {
+    const idProduto = Number(obterIdProduto(item));
+    const quantidade = Number(item.quantidade || 1);
+
+    if (
+      !Number.isInteger(idProduto) ||
+      idProduto <= 0 ||
+      !Number.isInteger(quantidade) ||
+      quantidade < 1
+    ) {
+      throw new Error(
+        'Um dos produtos do carrinho possui informações inválidas.'
+      );
+    }
+
+    return {
+      idProduto,
+      quantidade
+    };
+  });
+
+  if (!itens.length) {
+    throw new Error('Seu carrinho está vazio.');
+  }
+
+  const resposta = await fetch(`${API_URL}/compras/`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      nome: form.value.nome.trim(),
+      telefone: form.value.telefone,
+      formaPagamento: form.value.formaPagamento,
+      itens
+    })
+  });
+
+  let dados = {};
+
+  try {
+    dados = await resposta.json();
+  } catch {
+    dados = {};
+  }
+
+  if (!resposta.ok) {
+    const mensagem =
+      dados.detail ||
+      dados.erro ||
+      dados.mensagem ||
+      Object.values(dados).flat().join(' ') ||
+      'Não foi possível registrar sua compra.';
+
+    throw new Error(mensagem);
+  }
+
+  if (!dados.idCompra) {
+    throw new Error(
+      'O servidor não retornou o identificador da compra.'
+    );
+  }
+
+  return dados;
 };
 
-const salvarCompraNoHistorico = () => {
+/* =========================================
+   HISTÓRICO LOCAL
+========================================= */
+
+const salvarCompraNoHistorico = (idCompra, compraServidor = {}) => {
   let historico = [];
 
   try {
@@ -413,16 +655,28 @@ const salvarCompraNoHistorico = () => {
     historico = [];
   }
 
-  const pedidoId = gerarIdPedido();
-  const dataCompra = new Date().toISOString();
+  const pedidoId = idCompra;
+
+  const pedidoExistente = historico.find(
+    pedido => String(pedido.idPedido) === String(pedidoId)
+  );
+
+  if (pedidoExistente) {
+    return pedidoId;
+  }
 
   const pedido = {
     idPedido: pedidoId,
-    dataCompra,
+    idCompra: pedidoId,
+    dataCompra: compraServidor.criado_em ||
+      compraServidor.dataCompra ||
+      new Date().toISOString(),
+
     cliente: {
       nome: form.value.nome.trim(),
       telefone: form.value.telefone
     },
+
     formaPagamento: form.value.formaPagamento,
     pagamentoFormatado: pagamentoFormatado.value,
 
@@ -430,10 +684,8 @@ const salvarCompraNoHistorico = () => {
       form.value.formaPagamento === 'cartao'
         ? {
             id: cartaoSelecionado.value?.id || null,
-            bandeira:
-              cartaoSelecionado.value?.bandeira || '',
-            final:
-              cartaoSelecionado.value?.final || '',
+            bandeira: cartaoSelecionado.value?.bandeira || '',
+            final: cartaoSelecionado.value?.final || '',
             parcelas: parcelasCartao.value,
             valorParcela: valorParcela.value,
             juros: jurosCartao.value,
@@ -441,17 +693,31 @@ const salvarCompraNoHistorico = () => {
           }
         : null,
 
-    total: subtotal.value,
+    cupom: cupomAplicado.value
+      ? {
+          codigo: cupomAplicado.value.codigo,
+          titulo: cupomAplicado.value.titulo,
+          desconto: valorDescontoCupom.value
+        }
+      : null,
+
+    subtotal: subtotal.value,
+    desconto: valorDescontoCupom.value,
+    total: subtotalComDesconto.value,
+
     totalComJuros:
       form.value.formaPagamento === 'cartao'
         ? totalComJuros.value
-        : subtotal.value,
+        : subtotalComDesconto.value,
+
     quantidadeTotal: quantidadeTotal.value,
-    status: 'preparando',
+
+    status: compraServidor.status || 'pendente',
+    pagamentoConfirmado: false,
 
     itens: itensCompra.value.map(item => ({
       ...item,
-      idProduto: item.idProduto,
+      idProduto: Number(obterIdProduto(item)),
       quantidade: Number(item.quantidade || 1),
       preco: Number(item.preco || 0),
       avaliado: false,
@@ -466,23 +732,105 @@ const salvarCompraNoHistorico = () => {
     'historicoCompras',
     JSON.stringify(historico)
   );
+
+  return pedidoId;
 };
 
-const concluirPedido = () => {
-  salvarDadosCliente();
-  salvarCompraNoHistorico();
-  adicionarSelo(subtotal.value);
+/* =========================================
+   LIMPEZA DO PIX
+========================================= */
 
-  const idsComprados = itensCompra.value.map(
-    item => item.idProduto
+const limparTimerPix = () => {
+  if (timerPix) {
+    clearInterval(timerPix);
+    timerPix = null;
+  }
+};
+
+const limparPixPendente = () => {
+  limparTimerPix();
+
+  localStorage.removeItem(CHAVE_PIX);
+
+  pixCodigoCopiaCola.value = '';
+  pixExpiraEm.value = null;
+  tempoRestantePix.value = '03:00:00';
+};
+
+const atualizarTempoPix = () => {
+  if (!pixExpiraEm.value) return;
+
+  const restante = Math.max(
+    0,
+    pixExpiraEm.value - Date.now()
   );
 
-  removerItens(idsComprados);
+  if (restante <= 0) {
+    limparTimerPix();
+    localStorage.removeItem(CHAVE_PIX);
 
-  localStorage.removeItem('itensCheckout');
-  localStorage.removeItem('itensSelecionados');
+    statusFinalizacao.value = 'pix-expirado';
+    mensagemPix.value =
+      'O prazo desta demonstração PIX terminou.';
 
-  statusFinalizacao.value = 'sucesso';
+    return;
+  }
+
+  const horas = Math.floor(restante / 3600000);
+  const minutos = Math.floor((restante % 3600000) / 60000);
+  const segundos = Math.floor((restante % 60000) / 1000);
+
+  tempoRestantePix.value = [
+    String(horas).padStart(2, '0'),
+    String(minutos).padStart(2, '0'),
+    String(segundos).padStart(2, '0')
+  ].join(':');
+};
+
+const iniciarTimerPix = () => {
+  limparTimerPix();
+  atualizarTempoPix();
+
+  timerPix = setInterval(() => {
+    atualizarTempoPix();
+  }, 1000);
+};
+
+/* =========================================
+   GERAR DEMONSTRAÇÃO PIX
+========================================= */
+
+const gerarPixDemonstracao = () => {
+  const pedidoId = gerarIdPedido();
+
+  pixCodigoCopiaCola.value =
+    `DEMONSTRACAO-PIX-NAO-VALIDO-PARA-PAGAMENTO-PADARIA-MARTINS-${pedidoId}`;
+
+  pixExpiraEm.value = Date.now() + TEMPO_PIX;
+
+  const dadosPix = {
+    codigo: pixCodigoCopiaCola.value,
+    expiraEm: pixExpiraEm.value,
+    itens: itensCompra.value,
+    cliente: form.value,
+    cupom: cupomAplicado.value
+      ? {
+          codigo: cupomAplicado.value.codigo,
+          titulo: cupomAplicado.value.titulo
+        }
+      : null,
+    criadoEm: Date.now()
+  };
+
+  localStorage.setItem(
+    CHAVE_PIX,
+    JSON.stringify(dadosPix)
+  );
+
+  statusFinalizacao.value = 'pix';
+  mensagemPix.value = '';
+
+  iniciarTimerPix();
 
   window.scrollTo({
     top: 0,
@@ -490,16 +838,147 @@ const concluirPedido = () => {
   });
 };
 
+const copiarCodigoPix = async () => {
+  if (!pixCodigoCopiaCola.value) return;
+
+  try {
+    await navigator.clipboard.writeText(
+      pixCodigoCopiaCola.value
+    );
+
+    mensagemPix.value = 'Código de demonstração copiado.';
+
+  } catch {
+    mensagemPix.value =
+      'Não foi possível copiar automaticamente. Selecione e copie o código.';
+  }
+};
+
+const cancelarPix = () => {
+  limparPixPendente();
+
+  mensagemPix.value = '';
+  statusFinalizacao.value = 'ocioso';
+  etapaAtual.value = 3;
+};
+
+/* =========================================
+   CONCLUIR PEDIDO
+========================================= */
+
+const concluirPedido = async () => {
+  if (pedidoConcluido.value) return;
+
+  try {
+    limparErro();
+    salvarDadosCliente();
+
+    /*
+      Se a compra já foi registrada no servidor,
+      não envia outra requisição e evita duplicidade.
+    */
+    if (!compraRegistrada.value) {
+      const compra = await registrarCompraNoServidor();
+
+      compraRegistrada.value = compra;
+    }
+
+    const compra = compraRegistrada.value;
+
+    /*
+      Marca como concluído logo após o retorno
+      bem-sucedido do Django.
+    */
+    pedidoConcluido.value = true;
+
+    try {
+      salvarCompraNoHistorico(
+        compra.idCompra,
+        compra
+      );
+    } catch (erroHistorico) {
+      console.error(
+        'Não foi possível salvar o histórico local:',
+        erroHistorico
+      );
+    }
+
+    const idsComprados = itensCompra.value.map(item =>
+      Number(obterIdProduto(item))
+    );
+
+    try {
+      removerItens(idsComprados);
+    } catch (erroCarrinho) {
+      console.error(
+        'Não foi possível atualizar o carrinho:',
+        erroCarrinho
+      );
+    }
+
+    localStorage.removeItem('itensCheckout');
+    localStorage.removeItem('itensSelecionados');
+
+    limparPixPendente();
+
+    statusFinalizacao.value = 'sucesso';
+
+    /*
+      A carteira é apenas atualizada.
+      O selo é creditado pelo Django quando
+      o pagamento for realmente confirmado.
+    */
+    try {
+      await recarregar();
+    } catch (erroFidelidade) {
+      console.error(
+        'Não foi possível atualizar a carteira:',
+        erroFidelidade
+      );
+    }
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+
+  } catch (e) {
+    console.error('Erro ao registrar compra:', e);
+
+    erro.value =
+      e.message ||
+      'Não foi possível registrar seu pedido. Tente novamente.';
+
+    statusFinalizacao.value = 'ocioso';
+    etapaAtual.value = 4;
+  }
+};
+
+const confirmarPagamentoPix = () => {
+  if (statusFinalizacao.value !== 'pix') return;
+
+  limparTimerPix();
+
+  // Confirmação apenas demonstrativa.
+  statusFinalizacao.value = 'processando';
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+
+  timerFinalizacao = setTimeout(async () => {
+    await concluirPedido();
+  }, 1200);
+};
+
 const finalizarCompra = () => {
   limparErro();
 
-  if (statusFinalizacao.value !== 'ocioso') {
-    return;
-  }
+  if (statusFinalizacao.value !== 'ocioso') return;
 
   if (!form.value.nome.trim()) {
-    erro.value =
-      'Informe seu nome para continuar.';
+    erro.value = 'Informe seu nome para continuar.';
     etapaAtual.value = 2;
     return;
   }
@@ -508,15 +987,13 @@ const finalizarCompra = () => {
     !form.value.telefone ||
     form.value.telefone.length < 10
   ) {
-    erro.value =
-      'Informe um telefone válido para continuar.';
+    erro.value = 'Informe um telefone válido para continuar.';
     etapaAtual.value = 2;
     return;
   }
 
   if (!form.value.formaPagamento) {
-    erro.value =
-      'Selecione uma forma de pagamento.';
+    erro.value = 'Selecione uma forma de pagamento.';
     etapaAtual.value = 3;
     return;
   }
@@ -538,6 +1015,13 @@ const finalizarCompra = () => {
     return;
   }
 
+  salvarDadosCliente();
+
+  if (form.value.formaPagamento === 'pix') {
+    gerarPixDemonstracao();
+    return;
+  }
+
   statusFinalizacao.value = 'processando';
 
   window.scrollTo({
@@ -545,16 +1029,113 @@ const finalizarCompra = () => {
     behavior: 'smooth'
   });
 
-  timerFinalizacao = setTimeout(() => {
-    concluirPedido();
+  timerFinalizacao = setTimeout(async () => {
+    await concluirPedido();
   }, 2200);
 };
 
-const voltarInicio = () => {
-  router.push({
-    name: 'home'
-  });
+/* =========================================
+   RESTAURAR PIX
+========================================= */
+
+const restaurarPixPendente = async () => {
+  try {
+    const salvo = localStorage.getItem(CHAVE_PIX);
+
+    if (!salvo) return;
+
+    const dados = JSON.parse(salvo);
+
+    if (
+      !dados?.codigo ||
+      !dados?.expiraEm ||
+      !Array.isArray(dados.itens)
+    ) {
+      localStorage.removeItem(CHAVE_PIX);
+      return;
+    }
+
+    if (dados.expiraEm <= Date.now()) {
+      localStorage.removeItem(CHAVE_PIX);
+
+      statusFinalizacao.value = 'pix-expirado';
+      mensagemPix.value =
+        'O prazo desta demonstração PIX terminou.';
+
+      return;
+    }
+
+    pixCodigoCopiaCola.value = dados.codigo;
+    pixExpiraEm.value = dados.expiraEm;
+
+    if (dados.itens.length) {
+      itensCompra.value = dados.itens;
+
+      localStorage.setItem(
+        'itensCheckout',
+        JSON.stringify(dados.itens)
+      );
+    }
+
+    if (dados.cliente) {
+      form.value.nome = dados.cliente.nome || '';
+      form.value.telefone = dados.cliente.telefone || '';
+      form.value.formaPagamento = 'pix';
+    }
+
+    if (dados.cupom?.codigo) {
+      try {
+        const resultado = await validarCupom(
+          dados.cupom.codigo
+        );
+
+        if (resultado?.valido && resultado.cupom) {
+          cupomAplicado.value = resultado.cupom;
+          codigoCupom.value = resultado.cupom.codigo;
+        }
+      } catch (erroCupom) {
+        console.error(
+          'Não foi possível restaurar o cupom:',
+          erroCupom
+        );
+      }
+    }
+
+    etapaAtual.value = 4;
+    statusFinalizacao.value = 'pix';
+
+    iniciarTimerPix();
+
+  } catch (e) {
+    console.error('Erro ao restaurar PIX:', e);
+    localStorage.removeItem(CHAVE_PIX);
+  }
 };
+
+/* =========================================
+   NAVEGAÇÃO
+========================================= */
+
+const gerarIdPedido = () => {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
+};
+
+const voltarInicio = () => {
+  router.push({ name: 'home' });
+};
+
+/* =========================================
+   OBSERVADORES
+========================================= */
 
 watch(
   () => form.value.formaPagamento,
@@ -569,15 +1150,33 @@ watch(
   }
 );
 
-onMounted(() => {
+watch(subtotal, (novoSubtotal) => {
+  if (
+    cupomAplicado.value &&
+    valorDescontoCupom.value > novoSubtotal
+  ) {
+    removerCupom();
+  }
+});
+
+/* =========================================
+   CICLO DE VIDA
+========================================= */
+
+onMounted(async () => {
   carregarItensCompra();
   carregarDadosCliente();
+
+  await restaurarPixPendente();
 });
 
 onBeforeUnmount(() => {
   if (timerFinalizacao) {
     clearTimeout(timerFinalizacao);
+    timerFinalizacao = null;
   }
+
+  limparTimerPix();
 });
 </script>
 
@@ -586,6 +1185,7 @@ onBeforeUnmount(() => {
     <div class="decor decor-one"></div>
     <div class="decor decor-two"></div>
 
+    <!-- PROCESSANDO PEDIDO -->
     <div
       v-if="statusFinalizacao === 'processando'"
       class="finalizacao-page"
@@ -595,9 +1195,7 @@ onBeforeUnmount(() => {
           <div class="spinner"></div>
         </div>
 
-        <span class="finalizacao-label">
-          PAGAMENTO
-        </span>
+        <span class="finalizacao-label">PAGAMENTO</span>
 
         <h1>Processando seu pedido</h1>
 
@@ -612,30 +1210,22 @@ onBeforeUnmount(() => {
               R$ {{ formatarPreco(
                 form.formaPagamento === 'cartao'
                   ? totalComJuros
-                  : subtotal
+                  : subtotalComDesconto
               ) }}
             </strong>
           </div>
 
           <div>
             <span>Pagamento</span>
-            <strong>
-              {{ pagamentoFormatado }}
-            </strong>
+            <strong>{{ pagamentoFormatado }}</strong>
           </div>
 
-          <div
-            v-if="form.formaPagamento === 'cartao'"
-          >
+          <div v-if="form.formaPagamento === 'cartao'">
             <span>Parcelamento</span>
-            <strong>
-              {{ textoParcelas }}
-            </strong>
+            <strong>{{ textoParcelas }}</strong>
           </div>
 
-          <div
-            v-if="form.formaPagamento === 'cartao'"
-          >
+          <div v-if="form.formaPagamento === 'cartao'">
             <span>Juros</span>
             <strong>
               {{
@@ -651,12 +1241,143 @@ onBeforeUnmount(() => {
           <div></div>
         </div>
 
-        <small>
-          Aguarde só um momento...
-        </small>
+        <small>Aguarde só um momento...</small>
       </div>
     </div>
 
+    <!-- PIX -->
+    <div
+      v-else-if="statusFinalizacao === 'pix'"
+      class="finalizacao-page"
+    >
+      <div class="finalizacao-card pix-card">
+        <div class="pix-topo">
+          <div class="pix-icon-grande">
+            <i class="fa-brands fa-pix"></i>
+          </div>
+
+          <span class="finalizacao-label">
+            PAGAMENTO POR PIX
+          </span>
+
+          <h1>Seu PIX está pronto!</h1>
+
+          <p>
+            Confira o valor do pedido e utilize o código abaixo
+            na sua instituição financeira.
+          </p>
+        </div>
+
+        <div class="pix-valor">
+          <span>VALOR DO PEDIDO</span>
+          <strong>
+            R$ {{ formatarPreco(subtotalComDesconto) }}
+          </strong>
+        </div>
+
+        <div class="pix-tempo">
+          <div class="pix-tempo-icon">
+            <i class="fa-regular fa-clock"></i>
+          </div>
+
+          <div>
+            <span>Tempo restante da demonstração</span>
+            <strong>{{ tempoRestantePix }}</strong>
+          </div>
+        </div>
+
+        <div class="pix-codigo-area">
+          <div class="pix-codigo-heading">
+            <strong>Código PIX Copia e Cola</strong>
+            <span>DEMONSTRAÇÃO</span>
+          </div>
+
+          <textarea
+            :value="pixCodigoCopiaCola"
+            readonly
+            rows="4"
+            aria-label="Código PIX de demonstração"
+          ></textarea>
+
+          <button
+            type="button"
+            class="btn-copiar-pix"
+            @click="copiarCodigoPix"
+          >
+            <i class="fa-regular fa-copy"></i>
+            Copiar código
+          </button>
+        </div>
+
+        <div class="pix-aviso">
+          <i class="fa-solid fa-circle-info"></i>
+
+          <p>
+            Este código é apenas ilustrativo e não realiza
+            uma transferência financeira real. A confirmação
+            abaixo serve somente para testar o fluxo do checkout.
+          </p>
+        </div>
+
+        <p
+          v-if="mensagemPix"
+          class="pix-mensagem"
+        >
+          {{ mensagemPix }}
+        </p>
+
+        <button
+          type="button"
+          class="btn-confirmar-pix"
+          @click="confirmarPagamentoPix"
+        >
+          <i class="fa-solid fa-check"></i>
+          Confirmar pagamento de demonstração
+        </button>
+
+        <button
+          type="button"
+          class="btn-cancelar-pix"
+          @click="cancelarPix"
+        >
+          Cancelar e voltar ao pagamento
+        </button>
+      </div>
+    </div>
+
+    <!-- PIX EXPIRADO -->
+    <div
+      v-else-if="statusFinalizacao === 'pix-expirado'"
+      class="finalizacao-page"
+    >
+      <div class="finalizacao-card pix-expirado-card">
+        <div class="pix-expirado-icon">
+          <i class="fa-regular fa-clock"></i>
+        </div>
+
+        <span class="finalizacao-label">
+          PRAZO ENCERRADO
+        </span>
+
+        <h1>O PIX expirou</h1>
+
+        <p>
+          O tempo disponível para esta demonstração terminou.
+          Você pode retornar ao pagamento e gerar uma nova tentativa.
+        </p>
+
+        <button
+          type="button"
+          class="btn-finalizacao"
+          @click="statusFinalizacao = 'ocioso'; etapaAtual = 3"
+        >
+          <span>Voltar ao pagamento</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- PEDIDO FINALIZADO -->
     <div
       v-else-if="statusFinalizacao === 'sucesso'"
       class="finalizacao-page"
@@ -667,14 +1388,15 @@ onBeforeUnmount(() => {
         </div>
 
         <span class="finalizacao-label">
-          PEDIDO FINALIZADO
+          PEDIDO REGISTRADO
         </span>
 
-        <h1>Pedido realizado com sucesso!</h1>
+        <h1>Pedido registrado com sucesso!</h1>
 
         <p>
-          Tudo certo! Seu pedido foi registrado e já está sendo
-          preparado com carinho.
+          Seu pedido foi registrado e está aguardando a
+          confirmação do pagamento. Assim que tudo estiver
+          confirmado, a equipe poderá iniciar a preparação.
         </p>
 
         <div class="sucesso-resumo">
@@ -688,8 +1410,16 @@ onBeforeUnmount(() => {
 
           <div class="sucesso-resumo-item">
             <span>PAGAMENTO</span>
+            <strong>{{ pagamentoFormatado }}</strong>
+          </div>
+
+          <div
+            v-if="cupomAplicado"
+            class="sucesso-resumo-item"
+          >
+            <span>DESCONTO</span>
             <strong>
-              {{ pagamentoFormatado }}
+              R$ {{ formatarPreco(valorDescontoCupom) }}
             </strong>
           </div>
 
@@ -698,33 +1428,16 @@ onBeforeUnmount(() => {
             class="sucesso-resumo-item"
           >
             <span>PARCELAMENTO</span>
-            <strong>
-              {{ textoParcelas }}
-            </strong>
-          </div>
-
-          <div
-            v-if="form.formaPagamento === 'cartao'"
-            class="sucesso-resumo-item"
-          >
-            <span>JUROS</span>
-            <strong>
-              {{
-                jurosCartao > 0
-                  ? `R$ ${formatarPreco(jurosCartao)}`
-                  : 'Sem juros'
-              }}
-            </strong>
+            <strong>{{ textoParcelas }}</strong>
           </div>
 
           <div class="sucesso-resumo-item total">
             <span>TOTAL</span>
             <strong>
-              R$
-              {{ formatarPreco(
+              R$ {{ formatarPreco(
                 form.formaPagamento === 'cartao'
                   ? totalComJuros
-                  : subtotal
+                  : subtotalComDesconto
               ) }}
             </strong>
           </div>
@@ -732,7 +1445,6 @@ onBeforeUnmount(() => {
 
         <div class="sucesso-mensagem">
           <i class="fa-solid fa-heart"></i>
-
           <span>
             Obrigado por escolher a Padaria Martins!
           </span>
@@ -749,6 +1461,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+    <!-- CHECKOUT NORMAL -->
     <template v-else>
       <header class="checkout-header">
         <button
@@ -780,6 +1493,8 @@ onBeforeUnmount(() => {
       </header>
 
       <main class="checkout-container">
+
+        <!-- PROGRESSO -->
         <section class="progresso-card">
           <div class="progresso-heading">
             <div>
@@ -788,7 +1503,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="etapa-numero">
-              <b>{{ String(etapaAtual).padStart(2, "0") }}</b>
+              <b>{{ String(etapaAtual).padStart(2, '0') }}</b>
               <small>/ 04</small>
             </div>
           </div>
@@ -843,6 +1558,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <!-- ERRO -->
         <div
           v-if="erro"
           class="mensagem-erro"
@@ -865,6 +1581,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
+        <!-- ETAPA 1: PEDIDO -->
         <section
           v-if="etapaAtual === 1"
           class="checkout-card animate-fade"
@@ -887,7 +1604,7 @@ onBeforeUnmount(() => {
 
             <span class="item-counter">
               {{ quantidadeTotal }}
-              {{ quantidadeTotal === 1 ? "item" : "itens" }}
+              {{ quantidadeTotal === 1 ? 'item' : 'itens' }}
             </span>
           </div>
 
@@ -914,7 +1631,6 @@ onBeforeUnmount(() => {
 
               <div class="produto-info">
                 <span>PRODUTO</span>
-
                 <h3>{{ item.nome }}</h3>
 
                 <p>
@@ -929,21 +1645,115 @@ onBeforeUnmount(() => {
             </article>
           </div>
 
+          <!-- CUPOM -->
+          <div class="cupom-checkout">
+            <div class="cupom-titulo">
+              <div class="cupom-icone">
+                <i class="fa-solid fa-ticket"></i>
+              </div>
+
+              <div>
+                <strong>Tem um cupom de desconto?</strong>
+                <span>
+                  Aproveite suas recompensas da carteira.
+                </span>
+              </div>
+            </div>
+
+            <div
+              v-if="!cupomAplicado"
+              class="cupom-form"
+            >
+              <input
+                v-model="codigoCupom"
+                type="text"
+                placeholder="Digite seu código"
+                autocomplete="off"
+                @input="limparMensagemCupom"
+                @keyup.enter="aplicarCupom"
+              />
+
+              <button
+                type="button"
+                @click="aplicarCupom"
+              >
+                Aplicar
+              </button>
+            </div>
+
+            <div
+              v-else
+              class="cupom-aplicado"
+            >
+              <div>
+                <i class="fa-solid fa-circle-check"></i>
+
+                <div>
+                  <strong>{{ cupomAplicado.codigo }}</strong>
+                  <span>
+                    {{ cupomAplicado.titulo }}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                aria-label="Remover cupom"
+                @click="removerCupom"
+              >
+                <i class="fa-solid fa-trash"></i>
+                Remover
+              </button>
+            </div>
+
+            <p
+              v-if="mensagemCupom"
+              class="cupom-mensagem"
+              :class="tipoMensagemCupom"
+            >
+              <i
+                :class="tipoMensagemCupom === 'sucesso'
+                  ? 'fa-solid fa-circle-check'
+                  : 'fa-solid fa-circle-exclamation'"
+              ></i>
+
+              {{ mensagemCupom }}
+            </p>
+          </div>
+
+          <!-- TOTAL -->
           <div class="total-card">
             <div>
               <span>RESUMO DO PEDIDO</span>
-
               <strong>
                 {{ quantidadeTotal }}
-                {{ quantidadeTotal === 1 ? "item" : "itens" }}
+                {{ quantidadeTotal === 1 ? 'item' : 'itens' }}
               </strong>
             </div>
 
             <div class="total-valor">
-              <small>Total</small>
-
+              <small>Subtotal</small>
               <strong>
                 R$ {{ formatarPreco(subtotal) }}
+              </strong>
+
+              <small
+                v-if="valorDescontoCupom > 0"
+                class="desconto-label"
+              >
+                Desconto do cupom
+              </small>
+
+              <strong
+                v-if="valorDescontoCupom > 0"
+                class="desconto-valor"
+              >
+                − R$ {{ formatarPreco(valorDescontoCupom) }}
+              </strong>
+
+              <small>Total</small>
+              <strong>
+                R$ {{ formatarPreco(subtotalComDesconto) }}
               </strong>
             </div>
           </div>
@@ -960,6 +1770,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <!-- ETAPA 2: DADOS -->
         <section
           v-if="etapaAtual === 2"
           class="checkout-card animate-fade"
@@ -981,9 +1792,7 @@ onBeforeUnmount(() => {
 
           <div class="form-grid">
             <div class="form-group">
-              <label for="nome">
-                Nome completo
-              </label>
+              <label for="nome">Nome completo</label>
 
               <div class="input-box">
                 <i class="fa-solid fa-user"></i>
@@ -1000,9 +1809,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="form-group">
-              <label for="telefone">
-                Telefone
-              </label>
+              <label for="telefone">Telefone</label>
 
               <div class="input-box">
                 <i class="fa-solid fa-phone"></i>
@@ -1032,8 +1839,8 @@ onBeforeUnmount(() => {
             </div>
 
             <p>
-              Essas informações serão usadas apenas para identificar e
-              organizar seu pedido.
+              Essas informações serão usadas apenas para identificar
+              e organizar seu pedido.
             </p>
           </div>
 
@@ -1058,6 +1865,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <!-- ETAPA 3: PAGAMENTO -->
         <section
           v-if="etapaAtual === 3"
           class="checkout-card pagamento-card animate-fade"
@@ -1127,7 +1935,9 @@ onBeforeUnmount(() => {
 
               <div class="pagamento-texto">
                 <strong>Cartão</strong>
-                <span>Use um cartão salvo ou adicione um novo</span>
+                <span>
+                  Use um cartão salvo ou adicione um novo
+                </span>
               </div>
 
               <div class="check">
@@ -1139,6 +1949,7 @@ onBeforeUnmount(() => {
             </label>
           </div>
 
+          <!-- CARTÃO -->
           <div
             v-if="form.formaPagamento === 'cartao'"
             class="area-cartao"
@@ -1149,9 +1960,7 @@ onBeforeUnmount(() => {
                   CARTÃO PARA O PAGAMENTO
                 </span>
 
-                <strong>
-                  Seus cartões salvos
-                </strong>
+                <strong>Seus cartões salvos</strong>
               </div>
 
               <div class="cartao-seguranca">
@@ -1162,7 +1971,7 @@ onBeforeUnmount(() => {
 
             <PagamentoCartao
               v-model="cartaoSelecionado"
-              :valor="subtotal"
+              :valor="subtotalComDesconto"
             />
           </div>
 
@@ -1173,7 +1982,6 @@ onBeforeUnmount(() => {
 
             <div>
               <strong>Pagamento seguro</strong>
-
               <span>
                 Apenas informações necessárias do cartão são utilizadas.
               </span>
@@ -1181,10 +1989,21 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="mini-total">
-            <span>Total do pedido</span>
+            <div>
+              <span>Total do pedido</span>
+
+              <small v-if="valorDescontoCupom > 0">
+                Cupom aplicado:
+                − R$ {{ formatarPreco(valorDescontoCupom) }}
+              </small>
+            </div>
 
             <strong>
-              R$ {{ formatarPreco(subtotal) }}
+              R$ {{ formatarPreco(
+                form.formaPagamento === 'cartao'
+                  ? totalComJuros
+                  : subtotalComDesconto
+              ) }}
             </strong>
           </div>
 
@@ -1209,6 +2028,7 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <!-- ETAPA 4: CONFIRMAÇÃO -->
         <section
           v-if="etapaAtual === 4"
           class="checkout-card confirmacao-card animate-fade"
@@ -1256,6 +2076,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
+            <!-- CARTÃO ESCOLHIDO -->
             <div
               v-if="form.formaPagamento === 'cartao' && cartaoResumo"
               class="cartao-resumo"
@@ -1267,6 +2088,7 @@ onBeforeUnmount(() => {
 
                 <div>
                   <span>CARTÃO ESCOLHIDO</span>
+
                   <strong>
                     {{ cartaoResumo.bandeira }}
                     •••• {{ cartaoResumo.final }}
@@ -1284,9 +2106,7 @@ onBeforeUnmount(() => {
 
                 <div>
                   <span>PARCELAMENTO</span>
-                  <strong>
-                    {{ cartaoResumo.parcelas }}x
-                  </strong>
+                  <strong>{{ cartaoResumo.parcelas }}x</strong>
                 </div>
 
                 <div>
@@ -1298,6 +2118,7 @@ onBeforeUnmount(() => {
 
                 <div>
                   <span>JUROS</span>
+
                   <strong
                     :class="{
                       'sem-juros': cartaoResumo.juros === 0
@@ -1314,8 +2135,7 @@ onBeforeUnmount(() => {
                 <div>
                   <span>TOTAL COM JUROS</span>
                   <strong>
-                    R$
-                    {{ formatarPreco(cartaoResumo.totalComJuros) }}
+                    R$ {{ formatarPreco(cartaoResumo.totalComJuros) }}
                   </strong>
                 </div>
               </div>
@@ -1323,6 +2143,7 @@ onBeforeUnmount(() => {
 
             <div class="linha-detalhe"></div>
 
+            <!-- PRODUTOS -->
             <div class="resumo-produtos">
               <div
                 v-for="item in itensCompra"
@@ -1331,10 +2152,7 @@ onBeforeUnmount(() => {
               >
                 <div>
                   <span>{{ quantidadeItem(item) }}×</span>
-
-                  <strong>
-                    {{ item.nome }}
-                  </strong>
+                  <strong>{{ item.nome }}</strong>
                 </div>
 
                 <b>
@@ -1345,6 +2163,25 @@ onBeforeUnmount(() => {
 
             <div class="linha-detalhe"></div>
 
+            <!-- CUPOM NO RECIBO -->
+            <div
+              v-if="cupomAplicado"
+              class="recibo-cupom"
+            >
+              <div>
+                <i class="fa-solid fa-ticket"></i>
+
+                <div>
+                  <span>CUPOM APLICADO</span>
+                  <strong>{{ cupomAplicado.codigo }}</strong>
+                </div>
+              </div>
+
+              <strong>
+                − R$ {{ formatarPreco(valorDescontoCupom) }}
+              </strong>
+            </div>
+
             <div class="retirada">
               <div class="retirada-icon">
                 <i class="fa-solid fa-store"></i>
@@ -1352,33 +2189,29 @@ onBeforeUnmount(() => {
 
               <div>
                 <span>FORMA DE ENTREGA</span>
-
-                <strong>
-                  Retirada na loja
-                </strong>
-
+                <strong>Retirada na loja</strong>
                 <small>
                   Seu pedido estará disponível para retirada.
                 </small>
               </div>
             </div>
 
+            <!-- TOTAL -->
             <div class="total-recibo">
               <div>
                 <span>TOTAL</span>
 
                 <small>
                   {{ quantidadeTotal }}
-                  {{ quantidadeTotal === 1 ? "item" : "itens" }}
+                  {{ quantidadeTotal === 1 ? 'item' : 'itens' }}
                 </small>
               </div>
 
               <strong>
-                R$
-                {{ formatarPreco(
+                R$ {{ formatarPreco(
                   form.formaPagamento === 'cartao'
                     ? totalComJuros
-                    : subtotal
+                    : subtotalComDesconto
                 ) }}
               </strong>
             </div>
@@ -1399,8 +2232,17 @@ onBeforeUnmount(() => {
               class="btn-confirmar"
               @click="finalizarCompra"
             >
-              <span>Confirmar pedido</span>
-              <i class="fa-solid fa-check"></i>
+              <span>
+                {{ form.formaPagamento === 'pix'
+                  ? 'Gerar PIX'
+                  : 'Confirmar pedido' }}
+              </span>
+
+              <i
+                :class="form.formaPagamento === 'pix'
+                  ? 'fa-brands fa-pix'
+                  : 'fa-solid fa-check'"
+              ></i>
             </button>
           </div>
         </section>
@@ -1413,9 +2255,612 @@ onBeforeUnmount(() => {
     </template>
   </div>
 </template>
-
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Imprima&display=swap");
+
+
+/* =========================================
+   CUPOM DE DESCONTO
+========================================= */
+
+.cupom-checkout {
+  margin-top: 17px;
+  padding: 16px;
+  border: 1px solid #eadfce;
+  border-radius: 19px;
+  background: linear-gradient(135deg, #fffdfa, #faf5ed);
+}
+
+.cupom-titulo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 13px;
+}
+
+.cupom-icone {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: #f0e5d4;
+  color: #a7834e;
+  font-size: 16px;
+}
+
+.cupom-titulo > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cupom-titulo strong {
+  color: #5e3023;
+  font-size: .72rem;
+}
+
+.cupom-titulo span {
+  color: #a09287;
+  font-size: .57rem;
+}
+
+.cupom-form {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.cupom-form input {
+  min-width: 0;
+  flex: 1;
+  height: 43px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid #e4d8c9;
+  border-radius: 12px;
+  outline: none;
+  background: white;
+  color: #5e3023;
+  font-family: inherit;
+  font-size: .68rem;
+  text-transform: uppercase;
+  transition: .2s ease;
+}
+
+.cupom-form input::placeholder {
+  color: #b6aaa0;
+  text-transform: none;
+}
+
+.cupom-form input:focus {
+  border-color: #b89764;
+  box-shadow: 0 0 0 3px rgba(184,151,100,.1);
+}
+
+.cupom-form button {
+  min-width: 85px;
+  padding: 0 13px;
+  border: none;
+  border-radius: 12px;
+  background: #5e3023;
+  color: white;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .62rem;
+  font-weight: 800;
+  transition: .2s ease;
+}
+
+.cupom-form button:hover {
+  background: #754333;
+  transform: translateY(-1px);
+}
+
+.cupom-aplicado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d9e7d6;
+  border-radius: 13px;
+  background: #f4f8f1;
+}
+
+.cupom-aplicado > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.cupom-aplicado > div > i {
+  color: #64845b;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.cupom-aplicado > div > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cupom-aplicado strong {
+  color: #526c49;
+  font-size: .68rem;
+}
+
+.cupom-aplicado span {
+  overflow: hidden;
+  color: #899b7e;
+  font-size: .54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cupom-aplicado button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border: 1px solid #e8d2ce;
+  border-radius: 9px;
+  background: white;
+  color: #a45c52;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .53rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cupom-aplicado button:hover {
+  background: #fff3f1;
+}
+
+.cupom-mensagem {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: .57rem;
+  line-height: 1.5;
+}
+
+.cupom-mensagem.sucesso {
+  color: #628258;
+}
+
+.cupom-mensagem.erro {
+  color: #ad5b50;
+}
+
+.cupom-mensagem i {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.desconto-label {
+  margin-top: 7px;
+  color: #71916a !important;
+}
+
+.total-valor strong.desconto-valor {
+  color: #b5d1a9;
+  font-size: .83rem;
+}
+
+/* =========================================
+   TOTAL COM DESCONTO
+========================================= */
+
+.total-valor {
+  min-width: 100px;
+}
+
+.total-valor small {
+  text-align: right;
+}
+
+.mini-total > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mini-total small {
+  color: #71916a;
+  font-size: .52rem;
+}
+
+/* =========================================
+   CUPOM NO RECIBO
+========================================= */
+
+.recibo-cupom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 17px;
+  padding: 11px;
+  border: 1px solid #dce8d6;
+  border-radius: 13px;
+  background: #f4f8f1;
+}
+
+.recibo-cupom > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.recibo-cupom > div > i {
+  color: #718d64;
+  font-size: 16px;
+}
+
+.recibo-cupom > div > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recibo-cupom span {
+  color: #8b9b80;
+  font-size: .42rem;
+  font-weight: 900;
+  letter-spacing: .8px;
+}
+
+.recibo-cupom strong {
+  color: #5c7852;
+  font-size: .65rem;
+}
+
+.recibo-cupom > strong {
+  white-space: nowrap;
+}
+
+/* =========================================
+   TELA PIX
+========================================= */
+
+.pix-card {
+  max-width: 490px;
+}
+
+.pix-topo {
+  text-align: center;
+}
+
+.pix-icon-grande {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  border-radius: 23px;
+  background: #eaf5ed;
+  color: #399568;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 10px 25px rgba(57,149,104,.1);
+}
+
+.pix-valor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin-top: 23px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #5e3023;
+}
+
+.pix-valor span {
+  color: rgba(255,255,255,.55);
+  font-size: .49rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+}
+
+.pix-valor strong {
+  color: #e1c98f;
+  font-family: "Imprima", Georgia, serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+}
+
+.pix-tempo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 15px;
+  padding: 13px;
+  border: 1px solid #eee3d5;
+  border-radius: 15px;
+  background: #fcfaf7;
+  text-align: left;
+}
+
+.pix-tempo-icon {
+  width: 37px;
+  height: 37px;
+  border-radius: 12px;
+  background: #f3e9d9;
+  color: #a7834e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pix-tempo > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pix-tempo span {
+  color: #998b80;
+  font-size: .55rem;
+}
+
+.pix-tempo strong {
+  color: #5e3023;
+  font-size: .88rem;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pix-codigo-area {
+  margin-top: 17px;
+  padding: 14px;
+  border: 1px solid #e9dfd3;
+  border-radius: 17px;
+  background: #fcfaf7;
+  text-align: left;
+}
+
+.pix-codigo-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pix-codigo-heading strong {
+  color: #5e3023;
+  font-size: .65rem;
+}
+
+.pix-codigo-heading span {
+  padding: 5px 7px;
+  border-radius: 7px;
+  background: #f4e9d7;
+  color: #987849;
+  font-size: .42rem;
+  font-weight: 900;
+  letter-spacing: .6px;
+}
+
+.pix-codigo-area textarea {
+  width: 100%;
+  min-height: 85px;
+  box-sizing: border-box;
+  padding: 11px;
+  border: 1px dashed #d8c7ad;
+  border-radius: 11px;
+  outline: none;
+  resize: none;
+  background: white;
+  color: #82756b;
+  font-family: monospace;
+  font-size: .61rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.btn-copiar-pix {
+  width: 100%;
+  min-height: 43px;
+  margin-top: 9px;
+  border: 1px solid #d8c7ad;
+  border-radius: 11px;
+  background: #f6efe5;
+  color: #765c39;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .65rem;
+  font-weight: 900;
+  transition: .2s ease;
+}
+
+.btn-copiar-pix:hover {
+  background: #eee1ce;
+}
+
+.pix-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #eadfc9;
+  border-radius: 13px;
+  background: #fffaf0;
+  text-align: left;
+}
+
+.pix-aviso > i {
+  margin-top: 2px;
+  color: #a7834e;
+  flex-shrink: 0;
+}
+
+.pix-aviso p {
+  margin: 0;
+  color: #927d60;
+  font-size: .55rem;
+  line-height: 1.55;
+}
+
+.pix-mensagem {
+  margin: 12px 0 0;
+  color: #628258;
+  font-size: .6rem;
+  line-height: 1.5;
+}
+
+.btn-confirmar-pix {
+  width: 100%;
+  min-height: 49px;
+  margin-top: 18px;
+  padding: 10px;
+  border: none;
+  border-radius: 14px;
+  background: #5e3023;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .65rem;
+  font-weight: 900;
+  transition: .25s ease;
+}
+
+.btn-confirmar-pix:hover {
+  background: #754333;
+  transform: translateY(-2px);
+  box-shadow: 0 9px 20px rgba(94,48,35,.13);
+}
+
+.btn-confirmar-pix i {
+  color: #e1c98f;
+}
+
+.btn-cancelar-pix {
+  margin-top: 13px;
+  padding: 9px;
+  border: none;
+  background: transparent;
+  color: #a08f83;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .59rem;
+  font-weight: 700;
+  transition: .2s ease;
+}
+
+.btn-cancelar-pix:hover {
+  color: #5e3023;
+}
+
+/* =========================================
+   PIX EXPIRADO
+========================================= */
+
+.pix-expirado-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto;
+  border-radius: 23px;
+  background: #f8eee6;
+  color: #b17a55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+}
+
+/* =========================================
+   RESPONSIVIDADE
+========================================= */
+
+@media (max-width: 600px) {
+  .cupom-checkout {
+    padding: 13px;
+    border-radius: 16px;
+  }
+
+  .cupom-form {
+    gap: 6px;
+  }
+
+  .cupom-form input {
+    height: 42px;
+    font-size: .63rem;
+  }
+
+  .cupom-form button {
+    min-width: 76px;
+    padding: 0 9px;
+    font-size: .57rem;
+  }
+
+  .cupom-aplicado {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .cupom-aplicado button {
+    margin-left: auto;
+  }
+
+  .recibo-cupom {
+    margin-right: 12px;
+    margin-left: 12px;
+  }
+
+  .pix-card {
+    padding: 25px 17px;
+  }
+
+  .pix-valor strong {
+    font-size: 1.7rem;
+  }
+
+  .pix-codigo-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pix-aviso p {
+    font-size: .53rem;
+  }
+
+  .btn-confirmar-pix {
+    font-size: .59rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .processando-barra div {
+    animation: none;
+  }
+
+  .finalizacao-card,
+  .animate-fade {
+    animation: none;
+  }
+}
 
 .checkout-page {
   position: relative;

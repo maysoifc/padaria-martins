@@ -1,12 +1,15 @@
+
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useFidelidade } from "@/composables/useFidelidade";
 import PagamentoCartao from "@/components/PagamentoCartao.vue";
 import "@/assets/css/encomenda-checkout.css";
 
 const router = useRouter();
-const { adicionarSelo } = useFidelidade();
+
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+).replace(/\/+$/, "");
 
 // =====================================================
 // ESTADOS
@@ -20,6 +23,8 @@ const processando = ref(false);
 const statusFinalizacao = ref("ocioso");
 const erroFinalizacao = ref("");
 
+const compraRegistrada = ref(null);
+
 const form = ref({
   nome: "",
   telefone: "",
@@ -27,6 +32,14 @@ const form = ref({
   horarioRetirada: "",
   dataRetirada: "",
 });
+
+// =====================================================
+// AUTENTICAÇÃO
+// =====================================================
+
+const obterTokenCliente = () => {
+  return localStorage.getItem("token");
+};
 
 // =====================================================
 // DATAS E FORMATAÇÃO
@@ -80,32 +93,60 @@ onMounted(() => {
 });
 
 // =====================================================
+// IDENTIFICAR PRODUTOS
+// =====================================================
+
+const obterIdProduto = (item) => {
+  return (
+    item.idProduto ??
+    item.produto?.idProduto ??
+    item.produto?.id ??
+    item.produto_id ??
+    item.id
+  );
+};
+
+const obterQuantidade = (item) => {
+  return Math.max(
+    1,
+    Number(item.qtd ?? item.quantidade) || 1
+  );
+};
+
+// =====================================================
 // VALORES
 // =====================================================
 
 const subtotal = computed(() =>
   itensCompra.value.reduce((total, item) => {
     const preco = Number(item.preco) || 0;
-    const quantidade = Math.max(1, Number(item.qtd) || 1);
-
-    return total + preco * quantidade;
-  }, 0),
+    return total + preco * obterQuantidade(item);
+  }, 0)
 );
 
 const quantidadeItens = computed(() =>
-  itensCompra.value.reduce((total, item) => total + Math.max(1, Number(item.qtd) || 1), 0),
+  itensCompra.value.reduce(
+    (total, item) => total + obterQuantidade(item),
+    0
+  )
 );
 
-const progressoPercent = computed(() => ((etapaAtual.value - 1) / 3) * 100);
+const progressoPercent = computed(
+  () => ((etapaAtual.value - 1) / 3) * 100
+);
 
 const pagamentoCartao = computed(() =>
-  form.value.formaPagamento === "cartao" ? cartaoSelecionado.value : null,
+  form.value.formaPagamento === "cartao"
+    ? cartaoSelecionado.value
+    : null
 );
 
 const parcelas = computed(() => {
   const quantidade = Number(pagamentoCartao.value?.parcelas || 1);
 
-  return Number.isFinite(quantidade) && quantidade > 0 ? Math.floor(quantidade) : 1;
+  return Number.isFinite(quantidade) && quantidade > 0
+    ? Math.floor(quantidade)
+    : 1;
 });
 
 const juros = computed(() => {
@@ -117,9 +158,14 @@ const juros = computed(() => {
 const totalComJuros = computed(() => {
   if (!pagamentoCartao.value) return subtotal.value;
 
-  const totalInformado = Number(pagamentoCartao.value.totalComJuros);
+  const totalInformado = Number(
+    pagamentoCartao.value.totalComJuros
+  );
 
-  if (Number.isFinite(totalInformado) && totalInformado >= subtotal.value) {
+  if (
+    Number.isFinite(totalInformado) &&
+    totalInformado >= subtotal.value
+  ) {
     return totalInformado;
   }
 
@@ -129,7 +175,9 @@ const totalComJuros = computed(() => {
 const valorParcela = computed(() => {
   if (!pagamentoCartao.value) return subtotal.value;
 
-  const valorInformado = Number(pagamentoCartao.value.valorParcela);
+  const valorInformado = Number(
+    pagamentoCartao.value.valorParcela
+  );
 
   if (Number.isFinite(valorInformado) && valorInformado > 0) {
     return valorInformado;
@@ -153,7 +201,7 @@ const nomePagamento = computed(() => {
 });
 
 const textoParcelamento = computed(
-  () => `${parcelas.value}x de R$ ${formatarMoeda(valorParcela.value)}`,
+  () => `${parcelas.value}x de R$ ${formatarMoeda(valorParcela.value)}`
 );
 
 // =====================================================
@@ -165,7 +213,12 @@ const validarRetirada = () => {
   const data = form.value.dataRetirada;
   const horario = form.value.horarioRetirada;
 
-  if (!form.value.nome.trim() || !telefone || !data || !horario) {
+  if (
+    !form.value.nome.trim() ||
+    !telefone ||
+    !data ||
+    !horario
+  ) {
     alert("Por favor, preencha todos os campos.");
     return false;
   }
@@ -183,7 +236,11 @@ const validarRetirada = () => {
   const [horas, minutos] = horario.split(":").map(Number);
   const minutosTotais = horas * 60 + minutos;
 
-  if (!Number.isFinite(minutosTotais) || minutosTotais < 360 || minutosTotais > 1320) {
+  if (
+    !Number.isFinite(minutosTotais) ||
+    minutosTotais < 360 ||
+    minutosTotais > 1320
+  ) {
     alert("O horário de retirada deve ser entre 06:00 e 22:00.");
     return false;
   }
@@ -265,18 +322,123 @@ const dadosSegurosCartao = (cartao) => {
   return Object.fromEntries(
     camposPermitidos
       .filter((campo) => cartao[campo] !== undefined)
-      .map((campo) => [campo, cartao[campo]]),
+      .map((campo) => [campo, cartao[campo]])
   );
 };
 
 // =====================================================
-// SALVAR ENCOMENDA
+// REGISTRAR COMPRA NO DJANGO
 // =====================================================
 
-const salvarEncomenda = () => {
+const registrarCompraNaAPI = async () => {
+  const token = obterTokenCliente();
+
+  if (!token) {
+    throw new Error(
+      "Você precisa entrar na sua conta para registrar a encomenda."
+    );
+  }
+
+  if (!itensCompra.value.length) {
+    throw new Error("Sua encomenda está vazia.");
+  }
+
+  const itens = itensCompra.value.map((item) => {
+    const idProduto = obterIdProduto(item);
+
+    if (
+      idProduto === undefined ||
+      idProduto === null ||
+      idProduto === ""
+    ) {
+      throw new Error(
+        `Não foi possível identificar o produto "${item.nome || "selecionado"}". Volte à encomenda e tente novamente.`
+      );
+    }
+
+    return {
+      idProduto,
+      quantidade: obterQuantidade(item),
+    };
+  });
+
+  const corpo = {
+    nome: form.value.nome.trim(),
+    telefone: form.value.telefone,
+    formaPagamento: form.value.formaPagamento,
+    itens,
+  };
+
+  const resposta = await fetch(`${API_URL}/compras/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+    body: JSON.stringify(corpo),
+  });
+
+  let dados = {};
+
+  try {
+    dados = await resposta.json();
+  } catch {
+    dados = {};
+  }
+
+  if (!resposta.ok) {
+    if (resposta.status === 401) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente na sua conta."
+      );
+    }
+
+    if (resposta.status === 403) {
+      throw new Error(
+        "Você não tem permissão para registrar esta compra."
+      );
+    }
+
+    if (resposta.status === 404) {
+      throw new Error(
+        "A rota de compras não foi encontrada. Verifique a configuração da API."
+      );
+    }
+
+    const mensagem = dados.detail
+      ? dados.detail
+      : Object.entries(dados)
+          .map(([campo, valor]) => {
+            return `${campo}: ${
+              Array.isArray(valor) ? valor.join(", ") : String(valor)
+            }`;
+          })
+          .join(" ");
+
+    throw new Error(
+      mensagem || `Não foi possível registrar a compra. Código ${resposta.status}.`
+    );
+  }
+
+  if (!dados.idCompra) {
+    throw new Error(
+      "A API recebeu a solicitação, mas não retornou o identificador da compra. Verifique a resposta do Django antes de tentar novamente."
+    );
+  }
+
+  return dados;
+};
+
+// =====================================================
+// SALVAR HISTÓRICO LOCAL
+// =====================================================
+
+const salvarEncomenda = (compraAPI) => {
   const encomendaFinalizada = {
-    id: Date.now(),
-    data: new Date().toISOString(),
+    id: compraAPI.idCompra,
+    idCompra: compraAPI.idCompra,
+    data: compraAPI.criado_em || new Date().toISOString(),
 
     cliente: {
       nome: form.value.nome.trim(),
@@ -292,13 +454,21 @@ const salvarEncomenda = () => {
     pagamentoFormatado: nomePagamento.value,
 
     cartao:
-      form.value.formaPagamento === "cartao" ? dadosSegurosCartao(cartaoSelecionado.value) : null,
+      form.value.formaPagamento === "cartao"
+        ? dadosSegurosCartao(cartaoSelecionado.value)
+        : null,
 
-    parcelas: form.value.formaPagamento === "cartao" ? parcelas.value : 1,
+    parcelas:
+      form.value.formaPagamento === "cartao"
+        ? parcelas.value
+        : 1,
 
     valorParcela: valorParcela.value,
 
-    juros: form.value.formaPagamento === "cartao" ? juros.value : 0,
+    juros:
+      form.value.formaPagamento === "cartao"
+        ? juros.value
+        : 0,
 
     totalComJuros: totalComJuros.value,
     total: totalComJuros.value,
@@ -306,37 +476,61 @@ const salvarEncomenda = () => {
 
     itens: itensCompra.value.map((item) => ({ ...item })),
 
-    status: "confirmada",
+    status: compraAPI.status || "pendente",
+
+    // A compra ainda precisa ter seu pagamento confirmado.
+    pagamentoConfirmado: false,
   };
 
-  let historico = [];
-
   try {
-    const salvo = JSON.parse(localStorage.getItem("historicoEncomendas") || "[]");
+    let historico = [];
 
-    if (Array.isArray(salvo)) {
-      historico = salvo;
+    try {
+      const salvo = JSON.parse(
+        localStorage.getItem("historicoEncomendas") || "[]"
+      );
+
+      if (Array.isArray(salvo)) {
+        historico = salvo;
+      }
+    } catch {
+      historico = [];
     }
-  } catch {
-    historico = [];
+
+    // Evita duplicar o histórico se o mesmo pedido já estiver salvo.
+    const jaExiste = historico.some(
+      (item) =>
+        String(item.idCompra ?? item.id) ===
+        String(compraAPI.idCompra)
+    );
+
+    if (!jaExiste) {
+      historico.unshift(encomendaFinalizada);
+
+      localStorage.setItem(
+        "historicoEncomendas",
+        JSON.stringify(historico)
+      );
+    }
+  } catch (erro) {
+    // O registro no Django já foi realizado.
+    // Uma falha no histórico local não deve apagar a compra do servidor.
+    console.warn(
+      "Não foi possível atualizar o histórico local:",
+      erro
+    );
   }
 
-  historico.unshift(encomendaFinalizada);
-
-  localStorage.setItem("historicoEncomendas", JSON.stringify(historico));
-
-  // Limpa a encomenda atual somente após salvar.
+  // Só limpa a encomenda depois que o Django confirmou o registro.
   localStorage.removeItem("encomenda");
 
-  try {
-    adicionarSelo(subtotal.value);
-  } catch (erro) {
-    console.error("Não foi possível atualizar a fidelidade:", erro);
-  }
+  compraRegistrada.value = compraAPI;
+
+  return encomendaFinalizada;
 };
 
 // =====================================================
-// FINALIZAÇÃO COM TELA DE CARREGAMENTO E SUCESSO
+// FINALIZAÇÃO
 // =====================================================
 
 const finalizarCompra = async () => {
@@ -353,7 +547,10 @@ const finalizarCompra = async () => {
     return;
   }
 
-  if (form.value.formaPagamento === "cartao" && !cartaoSelecionado.value) {
+  if (
+    form.value.formaPagamento === "cartao" &&
+    !cartaoSelecionado.value
+  ) {
     alert("Selecione ou cadastre um cartão para continuar.");
     etapaAtual.value = 3;
     return;
@@ -369,17 +566,21 @@ const finalizarCompra = async () => {
   });
 
   try {
-    // Exibe a tela de carregamento antes da confirmação.
-    await new Promise((resolve) => setTimeout(resolve, 1800));
+    await new Promise((resolve) => setTimeout(resolve, 700));
 
-    salvarEncomenda();
+    // Primeiro registra no banco de dados.
+    const compraAPI = await registrarCompraNaAPI();
 
-    // Exibe a tela de sucesso.
+    // Depois salva o histórico local e limpa a encomenda.
+    salvarEncomenda(compraAPI);
+
     statusFinalizacao.value = "sucesso";
   } catch (erro) {
-    console.error("Erro ao salvar a encomenda:", erro);
+    console.error("Erro ao registrar a encomenda:", erro);
 
-    erroFinalizacao.value = "Não foi possível confirmar sua encomenda. Tente novamente.";
+    erroFinalizacao.value =
+      erro.message ||
+      "Não foi possível registrar sua encomenda. Tente novamente.";
 
     statusFinalizacao.value = "ocioso";
   } finally {
@@ -457,11 +658,11 @@ const voltarInicio = () => {
 
         <span class="eyebrow">PADARIA MARTINS</span>
 
-        <h1>Encomenda confirmada!</h1>
+        <h1>Encomenda registrada!</h1>
 
         <p>
-          Tudo certo! Sua encomenda foi registrada com sucesso. Estamos preparando tudo com muito
-          carinho.
+          Sua encomenda foi registrada com sucesso! Agora ela está aguardando
+          a confirmação do pagamento e o início da preparação.
         </p>
 
         <div class="success-divider"></div>

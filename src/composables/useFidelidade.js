@@ -1,31 +1,23 @@
+
 import { computed, ref } from "vue";
+
+// =========================================================
+// CONFIGURAÇÕES
+// =========================================================
 
 const TOTAL_SELOS = 10;
 const VALOR_MINIMO = 20;
 
-const CHAVE_SELOS = "selosCarteira";
-const CHAVE_CUPONS = "cuponsCarteira";
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://127.0.0.1:8000/api"
+).replace(/\/+$/, "");
 
-const lerSelos = () => {
-  return Number(localStorage.getItem(CHAVE_SELOS) || 0);
-};
+const selos = ref(0);
+const cupons = ref([]);
 
-const lerCupons = () => {
-  try {
-    const dados = localStorage.getItem(CHAVE_CUPONS);
-
-    if (!dados) return [];
-
-    const parsed = JSON.parse(dados);
-
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const selos = ref(lerSelos());
-const cupons = ref(lerCupons());
+const carregando = ref(false);
+const erro = ref(null);
 
 const premios = [
   {
@@ -79,106 +71,265 @@ const premios = [
   },
 ];
 
-// ========================================
-// PERSISTÊNCIA
-// ========================================
+// =========================================================
+// AUTENTICAÇÃO
+// =========================================================
 
-const salvarSelos = () => {
-  localStorage.setItem(CHAVE_SELOS, String(selos.value));
+const obterToken = () => {
+  return localStorage.getItem("token");
 };
 
-const salvarCupons = () => {
-  localStorage.setItem(
-    CHAVE_CUPONS,
-    JSON.stringify(cupons.value)
-  );
+const obterHeaders = () => {
+  const token = obterToken();
+
+  return {
+    "Content-Type": "application/json",
+    ...(token
+      ? { Authorization: `Bearer ${token}` }
+      : {}),
+  };
 };
 
-const recarregar = () => {
-  selos.value = lerSelos();
-  cupons.value = lerCupons();
+// =========================================================
+// REQUISIÇÕES
+// =========================================================
+
+const requisicao = async (endpoint, options = {}) => {
+  const resposta = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      ...obterHeaders(),
+      ...options.headers,
+    },
+  });
+
+  let dados = {};
+
+  try {
+    dados = await resposta.json();
+  } catch {
+    dados = {};
+  }
+
+  if (!resposta.ok) {
+    if (resposta.status === 401) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente na sua conta."
+      );
+    }
+
+    const mensagem =
+      dados.erro ||
+      dados.detail ||
+      dados.mensagem ||
+      "Não foi possível realizar a operação.";
+
+    throw new Error(mensagem);
+  }
+
+  return dados;
 };
 
-// ========================================
-// CÓDIGO DO CUPOM
-// ========================================
+// =========================================================
+// NORMALIZAÇÃO DE CUPONS
+// =========================================================
 
-const gerarCodigo = () => {
-  return `FID-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .substring(2, 7)
-    .toUpperCase()}`;
+const normalizarCupom = (cupom) => {
+  if (!cupom) return null;
+
+  const status = String(
+    cupom.status || "disponivel"
+  ).toLowerCase();
+
+  const criadoEm =
+    cupom.criadoEm ||
+    cupom.criado_em ||
+    null;
+
+  const utilizadoEm =
+    cupom.utilizadoEm ||
+    cupom.utilizado_em ||
+    null;
+
+  const utilizado =
+    status === "utilizado" ||
+    status === "usado" ||
+    Boolean(utilizadoEm);
+
+  return {
+    ...cupom,
+
+    id: cupom.id,
+
+    codigo: String(cupom.codigo || "")
+      .trim()
+      .toUpperCase(),
+
+    status: utilizado ? "utilizado" : status,
+
+    criadoEm,
+    utilizadoEm,
+
+    pedidoId:
+      cupom.pedidoId ??
+      cupom.compra_id ??
+      cupom.compra ??
+      null,
+
+    resgatado: utilizado,
+  };
 };
 
-// ========================================
-// VERIFICAR STATUS DO CUPOM
-// Compatibilidade com cupons antigos
-// ========================================
+// =========================================================
+// STATUS DOS CUPONS
+// =========================================================
 
 const cupomFoiUtilizado = (cupom) => {
+  if (!cupom) return false;
+
   return (
     cupom.status === "utilizado" ||
-    cupom.resgatado === true
+    cupom.status === "usado" ||
+    Boolean(cupom.utilizadoEm) ||
+    Boolean(cupom.utilizado_em)
   );
 };
 
 const buscarCupom = (codigo) => {
-  return cupons.value.find(
-    (cupom) => cupom.codigo === codigo
+  const codigoNormalizado = String(codigo || "")
+    .trim()
+    .toUpperCase();
+
+  return (
+    cupons.value.find(
+      (cupom) => cupom.codigo === codigoNormalizado
+    ) || null
   );
 };
 
-// ========================================
-// GERAR PRÊMIO ALEATÓRIO
-// ========================================
+// =========================================================
+// SINCRONIZAR CARTEIRA COM O DJANGO
+// =========================================================
 
-const criarCupom = () => {
-  const cupomExistente = cupons.value.find(
-    (cupom) =>
-      cupom.tipoSelo === "cartao-10-selos" &&
-      !cupomFoiUtilizado(cupom)
-  );
+let requisicaoAtual = null;
 
-  // Não gera outro cupom se já existe
-  // um prêmio disponível.
-  if (cupomExistente) {
-    return cupomExistente;
+const recarregar = async () => {
+  const token = obterToken();
+
+  if (!token) {
+    selos.value = 0;
+    cupons.value = [];
+
+    erro.value =
+      "Faça login para consultar sua carteira.";
+
+    return false;
   }
 
-  const premio =
-    premios[Math.floor(Math.random() * premios.length)];
+  // Evita várias requisições simultâneas.
+  if (requisicaoAtual) {
+    return requisicaoAtual;
+  }
 
-  const novoCupom = {
-    id: Date.now(),
-    codigo: gerarCodigo(),
+  carregando.value = true;
+  erro.value = null;
 
-    tipoSelo: "cartao-10-selos",
+  requisicaoAtual = (async () => {
+    try {
+      const [dadosCarteira, dadosCupons] =
+        await Promise.all([
+          requisicao("/fidelidade/carteira/"),
+          requisicao("/fidelidade/cupons/"),
+        ]);
 
-    titulo: premio.titulo,
-    descricao: premio.descricao,
-    tipo: premio.tipo,
-    icone: premio.icone,
+      // CARTEIRA
 
-    status: "disponivel",
-    resgatado: false,
+      const carteira =
+        dadosCarteira.carteira ||
+        dadosCarteira;
 
-    criadoEm: new Date().toISOString(),
-    utilizadoEm: null,
-    pedidoId: null,
-  };
+      const valorSelos = Number(
+        carteira.selos ?? 0
+      );
 
-  cupons.value.push(novoCupom);
+      selos.value = Number.isFinite(valorSelos)
+        ? Math.min(
+            Math.max(valorSelos, 0),
+            TOTAL_SELOS
+          )
+        : 0;
 
-  salvarCupons();
+      // CUPONS
 
-  return novoCupom;
+      let listaCupons = [];
+
+      if (Array.isArray(dadosCupons)) {
+        listaCupons = dadosCupons;
+      } else if (Array.isArray(dadosCupons.cupons)) {
+        listaCupons = dadosCupons.cupons;
+      } else {
+        const disponiveis = Array.isArray(
+          dadosCupons.disponiveis
+        )
+          ? dadosCupons.disponiveis
+          : [];
+
+        const utilizados = Array.isArray(
+          dadosCupons.utilizados
+        )
+          ? dadosCupons.utilizados
+          : [];
+
+        listaCupons = [
+          ...disponiveis,
+          ...utilizados,
+        ];
+      }
+
+      cupons.value = listaCupons
+        .map(normalizarCupom)
+        .filter(Boolean);
+
+      return true;
+    } catch (e) {
+      erro.value =
+        e.message || "Erro ao carregar a carteira.";
+
+      console.error(
+        "Erro ao sincronizar fidelidade:",
+        e
+      );
+
+      return false;
+    } finally {
+      carregando.value = false;
+      requisicaoAtual = null;
+    }
+  })();
+
+  return requisicaoAtual;
 };
 
-// ========================================
-// ADICIONAR SELO
-// ========================================
+// =========================================================
+// CRIAÇÃO DE CUPOM
+// =========================================================
 
-const adicionarSelo = (valorCompra) => {
+// Os cupons são gerados exclusivamente pelo Django.
+
+const criarCupom = async () => {
+  await recarregar();
+
+  return null;
+};
+
+// =========================================================
+// ADICIONAR SELO
+// =========================================================
+
+// O Django credita o selo após a confirmação do pagamento.
+// Esta função apenas sincroniza a carteira.
+
+const adicionarSelo = async (valorCompra) => {
   const valor = Number(valorCompra);
 
   if (
@@ -189,51 +340,34 @@ const adicionarSelo = (valorCompra) => {
       ganhouSelo: false,
       completouCartao: false,
       cupom: null,
+      mensagem: `Compra mínima de R$ ${VALOR_MINIMO.toFixed(2)}.`,
     };
   }
 
-  // Não permite acumular selos além de 10
-  // enquanto o prêmio anterior estiver disponível.
-  if (selos.value >= TOTAL_SELOS) {
-    return {
-      ganhouSelo: false,
-      completouCartao: true,
-      cupom: cupons.value.find(
-        (cupom) =>
-          cupom.tipoSelo === "cartao-10-selos" &&
-          !cupomFoiUtilizado(cupom)
-      ) || null,
-    };
-  }
-
-  selos.value += 1;
-
-  salvarSelos();
-
-  let cupom = null;
-  let completouCartao = false;
-
-  if (selos.value === TOTAL_SELOS) {
-    completouCartao = true;
-    cupom = criarCupom();
-  }
+  const sincronizado = await recarregar();
 
   return {
-    ganhouSelo: true,
-    completouCartao,
-    cupom,
+    ganhouSelo: false,
+    completouCartao: cartaoCompleto.value,
+    cupom: null,
+    mensagem: sincronizado
+      ? "A carteira foi atualizada. O selo é creditado pelo servidor após a confirmação do pagamento."
+      : "Não foi possível atualizar a carteira.",
   };
 };
 
-// ========================================
-// VALIDAR CUPOM
-// Não consome o cupom.
-// Pode ser chamado ao selecionar
-// ou aplicar o cupom no checkout.
-// ========================================
+// =========================================================
+// VALIDAR CUPOM NO SERVIDOR
+// =========================================================
 
-const validarCupom = (codigo) => {
-  if (!codigo) {
+// A validação não consome o cupom.
+
+const validarCupom = async (codigo) => {
+  const codigoNormalizado = String(codigo || "")
+    .trim()
+    .toUpperCase();
+
+  if (!codigoNormalizado) {
     return {
       valido: false,
       mensagem: "Informe um código de cupom.",
@@ -241,85 +375,87 @@ const validarCupom = (codigo) => {
     };
   }
 
-  const cupom = buscarCupom(codigo);
+  try {
+    const dados = await requisicao(
+      `/fidelidade/cupons/${encodeURIComponent(
+        codigoNormalizado
+      )}/utilizar/`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      }
+    );
 
-  if (!cupom) {
+    return {
+      valido: Boolean(dados.valido),
+      mensagem:
+        dados.mensagem || "Cupom validado.",
+      cupom: normalizarCupom(dados.cupom),
+    };
+  } catch (e) {
     return {
       valido: false,
-      mensagem: "Cupom não encontrado.",
-      cupom: null,
+      mensagem:
+        e.message || "Não foi possível validar o cupom.",
+      cupom: buscarCupom(codigoNormalizado),
     };
   }
-
-  if (cupomFoiUtilizado(cupom)) {
-    return {
-      valido: false,
-      mensagem: "Este cupom já foi utilizado.",
-      cupom,
-    };
-  }
-
-  return {
-    valido: true,
-    mensagem: "Cupom disponível para utilização.",
-    cupom,
-  };
 };
 
-// ========================================
+// =========================================================
 // CONFIRMAR UTILIZAÇÃO
-//
-// IMPORTANTE:
-// Chamar SOMENTE depois da confirmação
-// efetiva do pagamento.
-// Nunca chamar ao selecionar o cupom.
-// ========================================
+// =========================================================
 
-const confirmarUsoCupom = (codigo, pedidoId = null) => {
-  const resultado = validarCupom(codigo);
+const confirmarUsoCupom = async (
+  codigo,
+  pedidoId = null
+) => {
+  const sincronizado = await recarregar();
 
-  if (!resultado.valido) {
+  if (!sincronizado) {
     return false;
   }
 
-  const cupom = resultado.cupom;
+  const cupom = buscarCupom(codigo);
 
-  cupom.status = "utilizado";
-  cupom.resgatado = true;
-  cupom.utilizadoEm = new Date().toISOString();
-  cupom.pedidoId = pedidoId;
-
-  // O cartão de selos só é reiniciado
-  // depois que o prêmio for efetivamente utilizado.
-  if (cupom.tipoSelo === "cartao-10-selos") {
-    selos.value = 0;
-    salvarSelos();
+  if (!cupom) {
+    return false;
   }
 
-  salvarCupons();
+  if (
+    pedidoId !== null &&
+    cupom.pedidoId !== null &&
+    String(cupom.pedidoId) !== String(pedidoId)
+  ) {
+    return false;
+  }
 
-  return true;
+  return cupomFoiUtilizado(cupom);
 };
 
-// Compatibilidade com chamadas antigas.
-// Também deve ser chamado somente após
-// a confirmação do pagamento.
-const marcarCupomComoResgatado = (codigo) => {
+const marcarCupomComoResgatado = async (codigo) => {
   return confirmarUsoCupom(codigo);
 };
 
-// ========================================
-// ZERAR SELOS MANUALMENTE
-// ========================================
+// =========================================================
+// ZERAR SELOS
+// =========================================================
 
-const zerarSelos = () => {
-  selos.value = 0;
-  salvarSelos();
+// O frontend não zera os selos manualmente.
+
+const zerarSelos = async () => {
+  const sincronizado = await recarregar();
+
+  if (!sincronizado) {
+    return false;
+  }
+
+  return selos.value === 0;
 };
 
-// ========================================
+// =========================================================
 // INDICADORES
-// ========================================
+// =========================================================
 
 const progresso = computed(() => {
   return Math.min(
@@ -351,15 +487,24 @@ const cuponsUtilizados = computed(() => {
   );
 });
 
-// ========================================
+// =========================================================
 // COMPOSABLE
-// ========================================
+// =========================================================
 
 export function useFidelidade() {
+  // A sincronização é compartilhada entre os componentes.
+  // Se já existir uma requisição em andamento, ela será reutilizada.
+  if (obterToken()) {
+    recarregar();
+  }
+
   return {
     selos,
     cupons,
     premios,
+
+    carregando,
+    erro,
 
     TOTAL_SELOS,
     VALOR_MINIMO,
@@ -382,7 +527,6 @@ export function useFidelidade() {
     zerarSelos,
     recarregar,
 
-    salvarSelos,
-    salvarCupons,
+    cupomFoiUtilizado,
   };
 }
