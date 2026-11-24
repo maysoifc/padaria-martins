@@ -1,35 +1,102 @@
-import { ref } from 'vue';
+
+import { ref } from "vue";
 
 export function useProducts() {
   const produtos = ref([]);
   const erro = ref(null);
+  const carregando = ref(false);
 
-  // Agora aceita categoria e termo de busca como parâmetros opcionais
-  const carregarProdutos = async (categoria = '', busca = '') => {
+  // =========================================================
+  // CONFIGURAÇÃO DA API
+  // =========================================================
+
+  const API_URL = (
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://127.0.0.1:8000/api"
+  ).replace(/\/+$/, "");
+
+  // =========================================================
+  // CARREGAR PRODUTOS
+  // =========================================================
+
+  const carregarProdutos = async (
+    categoria = "",
+    busca = ""
+  ) => {
+    carregando.value = true;
+    erro.value = null;
+
     try {
-      // Ajuste para enviar a categoria vazia caso seja "Todos os produtos"
-      const catParam = categoria === 'Todos os produtos' ? '' : categoria;
+      const catParam =
+        categoria === "Todos os produtos"
+          ? ""
+          : categoria;
 
-      // Monta a URL com os dois filtros
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+      const params = new URLSearchParams();
 
-      const url = `${baseUrl}/produtos/?categoria=${encodeURIComponent(catParam)}&busca=${encodeURIComponent(busca)}`;
+      params.append("categoria", catParam);
+      params.append("busca", busca);
+
+      const url = `${API_URL}/produtos/?${params.toString()}`;
 
       const response = await fetch(url);
-      if (!response.ok) throw new Error('Erro ao conectar com a API');
+
+      if (!response.ok) {
+        throw new Error(
+          `Erro ao carregar produtos. Código: ${response.status}`
+        );
+      }
 
       const data = await response.json();
 
-      // Remove duplicatas mantendo apenas o primeiro registro encontrado para cada id
-      produtos.value = data.filter((item, index, self) =>
-        index === self.findIndex((t) => t.idProduto === item.idProduto)
-      );
+      // Aceita tanto uma lista direta quanto a paginação do DRF.
+      const listaProdutos = Array.isArray(data)
+        ? data
+        : Array.isArray(data.results)
+          ? data.results
+          : [];
+
+      // Mantém os dados originais, inclusive avaliação e
+      // quantidade_avaliacoes retornados pelo serializer.
+      const produtosUnicos = new Map();
+
+      listaProdutos.forEach((item) => {
+        if (item?.idProduto !== undefined && item?.idProduto !== null) {
+          if (!produtosUnicos.has(item.idProduto)) {
+            produtosUnicos.set(item.idProduto, {
+              ...item,
+              avaliacao: Number(
+                String(item.avaliacao ?? 0).replace(",", ".")
+              ),
+              quantidade_avaliacoes: Number(
+                item.quantidade_avaliacoes ?? 0
+              ),
+            });
+          }
+        }
+      });
+
+      produtos.value = Array.from(produtosUnicos.values());
 
     } catch (err) {
       erro.value = err.message;
-      console.error("Erro na conexão:", err);
+      produtos.value = [];
+
+      console.error("Erro ao carregar produtos:", err);
+
+    } finally {
+      carregando.value = false;
     }
   };
 
-  return { produtos, erro, carregarProdutos };
+  // =========================================================
+  // RETORNO
+  // =========================================================
+
+  return {
+    produtos,
+    erro,
+    carregando,
+    carregarProdutos,
+  };
 }

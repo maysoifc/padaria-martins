@@ -27,10 +27,6 @@ const mediaAvaliacoes = ref(0);
 const quantidadeAvaliacoes = ref(0);
 const carregandoAvaliacoes = ref(false);
 
-const notaSelecionada = ref(0);
-const comentarioNovo = ref("");
-const enviandoAvaliacao = ref(false);
-
 const API_URL = (
   import.meta.env.VITE_API_BASE_URL ||
   "http://127.0.0.1:8000/api"
@@ -178,69 +174,238 @@ function iniciarRotacaoAvaliacoes() {
   }
 }
 
+// ============================================
+// EXTRAIR LISTA DE AVALIAÇÕES
+// ============================================
+
+function extrairListaAvaliacoes(dados) {
+  if (Array.isArray(dados)) return dados;
+  if (Array.isArray(dados?.results)) return dados.results;
+  if (Array.isArray(dados?.avaliacoes)) return dados.avaliacoes;
+  if (Array.isArray(dados?.data)) return dados.data;
+
+  return [];
+}
+
+// ============================================
+// CARREGAR AVALIAÇÕES
+// ============================================
+
 async function carregarAvaliacoes(id, requisicaoAtual) {
   limparRotacaoAvaliacoes();
 
+  const mediaProduto = Number(
+    produto.value?.avaliacao ??
+    produto.value?.media_avaliacoes ??
+    produto.value?.media ??
+    0
+  );
+
+  const quantidadeProduto = Number(
+    produto.value?.quantidade_avaliacoes ??
+    produto.value?.total_avaliacoes ??
+    0
+  );
+
   avaliacoes.value = [];
   avaliacaoAtual.value = 0;
-  mediaAvaliacoes.value = 0;
-  quantidadeAvaliacoes.value = 0;
+
+  mediaAvaliacoes.value = Number.isFinite(mediaProduto)
+    ? mediaProduto
+    : 0;
+
+  quantidadeAvaliacoes.value = Number.isFinite(quantidadeProduto)
+    ? quantidadeProduto
+    : 0;
 
   carregandoAvaliacoes.value = true;
 
   try {
-    const response = await fetch(
-      `${API_URL}/produtos/${encodeURIComponent(id)}/avaliacoes/`,
-      {
-        headers: obterHeaders(false),
+    const resultados = await Promise.allSettled([
+      fetch(
+        `${API_URL}/avaliacoes/?produto=${encodeURIComponent(id)}`,
+        {
+          method: "GET",
+          headers: obterHeaders(false),
+        }
+      ),
+
+      fetch(
+        `${API_URL}/produtos/${encodeURIComponent(id)}/avaliacoes/`,
+        {
+          method: "GET",
+          headers: obterHeaders(false),
+        }
+      ),
+    ]);
+
+    if (requisicaoAtual !== requisicaoProduto) return;
+
+    let avaliacoesPerfil = [];
+    let dadosProduto = {};
+
+    // Avaliações utilizadas também no perfil.
+    if (resultados[0].status === "fulfilled") {
+      const response = resultados[0].value;
+
+      if (response.ok) {
+        const dados = await response.json();
+        avaliacoesPerfil = extrairListaAvaliacoes(dados);
+      } else {
+        console.warn(
+          "Não foi possível consultar /avaliacoes/:",
+          response.status
+        );
       }
+    }
+
+    // Estatísticas e avaliações do produto.
+    if (resultados[1].status === "fulfilled") {
+      const response = resultados[1].value;
+
+      if (response.ok) {
+        dadosProduto = await response.json();
+      } else {
+        console.warn(
+          "Não foi possível consultar avaliações do produto:",
+          response.status
+        );
+      }
+    }
+
+    if (requisicaoAtual !== requisicaoProduto) return;
+
+    const avaliacoesProduto = extrairListaAvaliacoes(dadosProduto);
+
+    // Junta os dois resultados e evita duplicações.
+    const todasAvaliacoes = [
+      ...avaliacoesPerfil,
+      ...avaliacoesProduto,
+    ];
+
+    const avaliacoesUnicas = new Map();
+
+    todasAvaliacoes.forEach((item, index) => {
+      const idAvaliacao =
+        item.id ??
+        item.idAvaliacao ??
+        item.pk ??
+        `${item.usuario ?? item.nome_usuario ?? "cliente"}-${index}`;
+
+      avaliacoesUnicas.set(String(idAvaliacao), item);
+    });
+
+    // Normaliza os dados recebidos.
+    avaliacoes.value = Array.from(avaliacoesUnicas.values())
+      .map((item, index) => ({
+        id: item.id ?? item.idAvaliacao ?? item.pk ?? index,
+
+        produtoId:
+          item.produto?.idProduto ??
+          item.produto?.id ??
+          item.produto_id ??
+          item.produto ??
+          null,
+
+        comentario: String(
+          item.comentario ?? item.observacao ?? ""
+        ).trim(),
+
+        nota: Math.min(
+          5,
+          Math.max(0, Number(item.nota ?? item.avaliacao) || 0)
+        ),
+
+        nome: String(
+          item.nome_usuario ??
+          item.usuario_nome ??
+          item.username ??
+          item.nome ??
+          "Cliente"
+        ),
+
+        criadoEm: item.criado_em ?? item.data ?? null,
+      }))
+      // Mantém somente avaliações do produto atual.
+      .filter((item) => {
+        if (item.nota <= 0) return false;
+
+        if (item.produtoId === null || item.produtoId === undefined) {
+          // O endpoint do produto pode retornar avaliações sem o ID.
+          return avaliacoesProduto.some(
+            (original) =>
+              String(original.id ?? original.idAvaliacao ?? original.pk) ===
+              String(item.id)
+          );
+        }
+
+        return String(item.produtoId) === String(id);
+      })
+      .sort((a, b) => {
+        return (
+          new Date(b.criadoEm || 0).getTime() -
+          new Date(a.criadoEm || 0).getTime()
+        );
+      });
+
+    // Calcula a média usando as notas retornadas.
+    const somaNotas = avaliacoes.value.reduce(
+      (total, item) => total + item.nota,
+      0
     );
 
-    if (!response.ok) {
-      throw new Error("Não foi possível carregar as avaliações.");
-    }
+    const mediaCalculada = avaliacoes.value.length
+      ? somaNotas / avaliacoes.value.length
+      : 0;
 
-    const dados = await response.json();
+    const mediaApi = Number(
+      dadosProduto.media ??
+      dadosProduto.avaliacao ??
+      dadosProduto.media_avaliacoes ??
+      0
+    );
 
-    if (requisicaoAtual !== requisicaoProduto) {
-      return;
-    }
+    const quantidadeApi = Number(
+      dadosProduto.quantidade ??
+      dadosProduto.quantidade_avaliacoes ??
+      dadosProduto.total_avaliacoes ??
+      0
+    );
 
-    mediaAvaliacoes.value = Number(dados.media) || 0;
-    quantidadeAvaliacoes.value = Number(dados.quantidade) || 0;
+    mediaAvaliacoes.value =
+      Number.isFinite(mediaApi) && mediaApi > 0
+        ? mediaApi
+        : mediaCalculada || mediaProduto || 0;
 
-    avaliacoes.value = Array.isArray(dados.avaliacoes)
-      ? dados.avaliacoes
-          .map((item) => ({
-            id: item.id,
-            comentario: String(item.comentario || "").trim(),
-            nota: Math.min(
-              5,
-              Math.max(0, Number(item.nota) || 0)
-            ),
-            nome: String(item.nome_usuario || "Cliente"),
-            criadoEm: item.criado_em || null,
-          }))
-          .filter((item) => item.nota > 0 && item.comentario)
-      : [];
+    quantidadeAvaliacoes.value = Math.max(
+      avaliacoes.value.length,
+      Number.isFinite(quantidadeApi) ? quantidadeApi : 0,
+      quantidadeProduto
+    );
+
+    avaliacaoAtual.value = 0;
 
     iniciarRotacaoAvaliacoes();
+
   } catch (error) {
-    if (requisicaoAtual !== requisicaoProduto) {
-      return;
-    }
+    if (requisicaoAtual !== requisicaoProduto) return;
 
     console.error("Erro ao carregar avaliações:", error);
 
-    avaliacoes.value = [];
-    mediaAvaliacoes.value = 0;
-    quantidadeAvaliacoes.value = 0;
+    if (!avaliacoes.value.length) {
+      mediaAvaliacoes.value = mediaProduto || 0;
+      quantidadeAvaliacoes.value = quantidadeProduto || 0;
+    }
   } finally {
     if (requisicaoAtual === requisicaoProduto) {
       carregandoAvaliacoes.value = false;
     }
   }
 }
+
+// ============================================
+// CARREGAR PRODUTO
+// ============================================
 
 async function carregarProduto() {
   const id = route.params.id;
@@ -255,9 +420,6 @@ async function carregarProduto() {
 
   mostrarModal.value = false;
   quantidade.value = 1;
-
-  notaSelecionada.value = 0;
-  comentarioNovo.value = "";
 
   avaliacoes.value = [];
   avaliacaoAtual.value = 0;
@@ -300,7 +462,21 @@ async function carregarProduto() {
     produto.value = dados;
     favorito.value = Boolean(dados.favorito);
 
+    mediaAvaliacoes.value = Number(
+      dados.avaliacao ??
+      dados.media_avaliacoes ??
+      dados.media ??
+      0
+    ) || 0;
+
+    quantidadeAvaliacoes.value = Number(
+      dados.quantidade_avaliacoes ??
+      dados.total_avaliacoes ??
+      0
+    ) || 0;
+
     await carregarAvaliacoes(id, requisicaoAtual);
+
   } catch (error) {
     if (requisicaoAtual !== requisicaoProduto) {
       return;
@@ -316,6 +492,10 @@ async function carregarProduto() {
   }
 }
 
+// ============================================
+// NAVEGAÇÃO
+// ============================================
+
 function voltar() {
   if (window.history.length > 1) {
     router.back();
@@ -323,6 +503,10 @@ function voltar() {
     router.push("/menu");
   }
 }
+
+// ============================================
+// CARRINHO
+// ============================================
 
 function abrirModal() {
   if (!produto.value || adicionando.value) {
@@ -443,6 +627,7 @@ async function alternarFavorito() {
     sucesso.value = favorito.value
       ? "Produto adicionado aos favoritos!"
       : "Produto removido dos favoritos!";
+
   } catch (error) {
     console.error("Erro ao atualizar favorito:", error);
     erro.value = error.message;
@@ -452,105 +637,8 @@ async function alternarFavorito() {
 }
 
 // ============================================
-// AVALIAÇÕES
+// NAVEGAR PELAS AVALIAÇÕES
 // ============================================
-
-function selecionarNota(nota) {
-  notaSelecionada.value = nota;
-}
-
-async function enviarAvaliacao() {
-  if (enviandoAvaliacao.value || !produto.value) {
-    return;
-  }
-
-  limparMensagens();
-
-  if (!exigirLogin()) {
-    return;
-  }
-
-  if (notaSelecionada.value < 1 || notaSelecionada.value > 5) {
-    erro.value = "Selecione uma nota de 1 a 5 estrelas.";
-    return;
-  }
-
-  const comentario = comentarioNovo.value.trim();
-
-  if (!comentario) {
-    erro.value = "Escreva um comentário antes de enviar.";
-    return;
-  }
-
-  if (comentario.length > 1000) {
-    erro.value = "O comentário deve ter no máximo 1000 caracteres.";
-    return;
-  }
-
-  const id = idProduto.value;
-  const requisicaoAtual = requisicaoProduto;
-
-  enviandoAvaliacao.value = true;
-
-  try {
-    const response = await fetch(
-      `${API_URL}/produtos/${encodeURIComponent(id)}/avaliacoes/`,
-      {
-        method: "POST",
-        headers: obterHeaders(),
-        body: JSON.stringify({
-          nota: notaSelecionada.value,
-          comentario,
-        }),
-      }
-    );
-
-    const dados = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        throw new Error("Sua sessão expirou. Entre novamente.");
-      }
-
-      const detalhe =
-        dados.detail ||
-        dados.erro ||
-        dados.nota ||
-        dados.comentario;
-
-      throw new Error(
-        typeof detalhe === "string"
-          ? detalhe
-          : "Não foi possível enviar sua avaliação."
-      );
-    }
-
-    if (requisicaoAtual !== requisicaoProduto) {
-      return;
-    }
-
-    comentarioNovo.value = "";
-    notaSelecionada.value = 0;
-
-    await carregarAvaliacoes(id, requisicaoAtual);
-
-    if (requisicaoAtual === requisicaoProduto) {
-      sucesso.value =
-        dados.message ||
-        dados.mensagem ||
-        "Sua avaliação foi registrada com sucesso!";
-    }
-  } catch (error) {
-    if (requisicaoAtual !== requisicaoProduto) {
-      return;
-    }
-
-    console.error("Erro ao enviar avaliação:", error);
-    erro.value = error.message;
-  } finally {
-    enviandoAvaliacao.value = false;
-  }
-}
 
 function selecionarAvaliacao(index) {
   if (index < 0 || index >= avaliacoes.value.length) {
@@ -560,6 +648,10 @@ function selecionarAvaliacao(index) {
   avaliacaoAtual.value = index;
   iniciarRotacaoAvaliacoes();
 }
+
+// ============================================
+// OBSERVAR ROTA
+// ============================================
 
 watch(
   () => route.params.id,
@@ -574,7 +666,6 @@ onBeforeUnmount(() => {
   limparRotacaoAvaliacoes();
 });
 </script>
-
 
 <template>
   <div class="pagina-detalhes">
@@ -676,7 +767,6 @@ onBeforeUnmount(() => {
 
           <!-- NOTA REAL -->
           <div class="avaliacao-hero">
-
             <i class="fas fa-star"></i>
 
             <span>
@@ -686,7 +776,6 @@ onBeforeUnmount(() => {
             <small v-if="quantidadeAvaliacoes > 0">
               ({{ quantidadeAvaliacoes }})
             </small>
-
           </div>
         </section>
 
@@ -716,13 +805,11 @@ onBeforeUnmount(() => {
           <div class="cabecalho-produto">
 
             <div class="nome-produto">
-
               <span class="categoria">
                 Produto artesanal
               </span>
 
               <h1>{{ produto.nome }}</h1>
-
             </div>
 
             <div class="preco">
@@ -751,7 +838,6 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="ingrediente-texto">
-
                   <span>Base</span>
 
                   <p>
@@ -760,7 +846,6 @@ onBeforeUnmount(() => {
                       "Ingredientes não informados"
                     }}
                   </p>
-
                 </div>
 
               </article>
@@ -772,7 +857,6 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div class="ingrediente-texto">
-
                   <span>Cobertura</span>
 
                   <p>
@@ -781,13 +865,11 @@ onBeforeUnmount(() => {
                       "Sem cobertura"
                     }}
                   </p>
-
                 </div>
 
               </article>
 
             </div>
-
           </section>
 
           <!-- MENSAGEM -->
@@ -798,19 +880,17 @@ onBeforeUnmount(() => {
             </div>
 
             <div>
-
               <strong>Feito com carinho</strong>
 
               <p>
                 Preparado com ingredientes selecionados para deixar seu
                 momento ainda mais especial.
               </p>
-
             </div>
 
           </section>
 
-          <!-- AVALIAÇÕES -->
+          <!-- AVALIAÇÕES DOS CLIENTES -->
           <section class="avaliacoes-produto">
 
             <div class="avaliacoes-cabecalho">
@@ -855,6 +935,7 @@ onBeforeUnmount(() => {
             <div
               v-if="carregandoAvaliacoes"
               class="avaliacao-vazia"
+              role="status"
             >
               <span class="carregamento-spinner"></span>
               <p>Carregando avaliações...</p>
@@ -874,7 +955,6 @@ onBeforeUnmount(() => {
                 >
 
                   <div class="avaliacao-estrelas">
-
                     <i
                       v-for="estrela in 5"
                       :key="estrela"
@@ -883,11 +963,13 @@ onBeforeUnmount(() => {
                         ativa: estrela <= avaliacaoExibida.nota
                       }"
                     ></i>
-
                   </div>
 
                   <p class="avaliacao-comentario">
-                    “{{ avaliacaoExibida.comentario }}”
+                    {{
+                      avaliacaoExibida.comentario ||
+                      "Avaliação registrada sem comentário."
+                    }}
                   </p>
 
                   <div class="avaliacao-cliente">
@@ -897,7 +979,6 @@ onBeforeUnmount(() => {
                     </span>
 
                     <div>
-
                       <strong>
                         {{ avaliacaoExibida.nome }}
                       </strong>
@@ -905,7 +986,6 @@ onBeforeUnmount(() => {
                       <small>
                         Cliente da Padaria Martins
                       </small>
-
                     </div>
 
                   </div>
@@ -935,7 +1015,7 @@ onBeforeUnmount(() => {
 
             </template>
 
-            <!-- SEM COMENTÁRIOS -->
+            <!-- AVALIAÇÕES SEM COMENTÁRIOS -->
             <div
               v-else-if="quantidadeAvaliacoes > 0"
               class="avaliacao-vazia"
@@ -968,104 +1048,7 @@ onBeforeUnmount(() => {
               </p>
 
               <small>
-                Seja um dos primeiros clientes a avaliar!
-              </small>
-
-            </div>
-
-            <!-- FORMULÁRIO -->
-            <div class="formulario-avaliacao">
-
-              <div class="titulo-secao">
-                <span class="linha-titulo"></span>
-                <h2>Deixe sua avaliação</h2>
-              </div>
-
-              <p class="formulario-descricao">
-                Conte como foi sua experiência com este produto.
-              </p>
-
-              <!-- ESTRELAS -->
-              <div
-                class="seletor-estrelas"
-                role="group"
-                aria-label="Escolha sua nota"
-              >
-
-                <button
-                  v-for="estrela in 5"
-                  :key="estrela"
-                  type="button"
-                  :class="{
-                    selecionada: estrela <= notaSelecionada
-                  }"
-                  :aria-label="`${estrela} estrelas`"
-                  :aria-pressed="estrela === notaSelecionada"
-                  :disabled="enviandoAvaliacao"
-                  @click="selecionarNota(estrela)"
-                >
-
-                  <i class="fas fa-star"></i>
-
-                </button>
-
-              </div>
-
-              <span
-                v-if="notaSelecionada"
-                class="nota-selecionada"
-              >
-                {{ notaSelecionada }}
-                {{ notaSelecionada === 1 ? "estrela" : "estrelas" }} selecionadas
-              </span>
-
-              <!-- COMENTÁRIO -->
-              <label
-                class="label-comentario"
-                for="comentario-produto"
-              >
-                Seu comentário
-              </label>
-
-              <textarea
-                id="comentario-produto"
-                v-model="comentarioNovo"
-                maxlength="1000"
-                rows="4"
-                placeholder="Conte o que achou deste produto..."
-                :disabled="enviandoAvaliacao"
-              ></textarea>
-
-              <div class="contador-comentario">
-                {{ comentarioNovo.length }}/1000 caracteres
-              </div>
-
-              <!-- ENVIAR -->
-              <button
-                class="botao-enviar-avaliacao"
-                type="button"
-                :disabled="enviandoAvaliacao"
-                @click="enviarAvaliacao"
-              >
-
-                <i
-                  :class="
-                    enviandoAvaliacao
-                      ? 'fas fa-spinner fa-spin'
-                      : 'fas fa-paper-plane'
-                  "
-                ></i>
-
-                {{
-                  enviandoAvaliacao
-                    ? "Enviando avaliação..."
-                    : "Publicar avaliação"
-                }}
-
-              </button>
-
-              <small class="aviso-login-avaliacao">
-                É necessário estar conectado à sua conta para avaliar.
+                As avaliações dos nossos clientes aparecerão aqui.
               </small>
 
             </div>
@@ -1073,20 +1056,17 @@ onBeforeUnmount(() => {
           </section>
 
         </section>
-
       </main>
 
       <!-- BARRA DE COMPRA -->
       <footer class="barra-compra">
 
         <div class="resumo-compra">
-
           <span>Total</span>
 
           <strong>
             R$ {{ totalFormatado }}
           </strong>
-
         </div>
 
         <button
@@ -1094,10 +1074,8 @@ onBeforeUnmount(() => {
           type="button"
           @click="abrirModal"
         >
-
           <i class="fas fa-shopping-bag"></i>
           <span>Adicionar ao carrinho</span>
-
         </button>
 
       </footer>
@@ -1125,9 +1103,7 @@ onBeforeUnmount(() => {
               :disabled="adicionando"
               @click="fecharModal"
             >
-
               <i class="fas fa-times"></i>
-
             </button>
 
             <div class="modal-icone">
@@ -1171,13 +1147,11 @@ onBeforeUnmount(() => {
 
             <!-- TOTAL -->
             <div class="modal-total">
-
               <span>Total</span>
 
               <strong>
                 R$ {{ totalFormatado }}
               </strong>
-
             </div>
 
             <!-- ADICIONAR -->
@@ -1187,7 +1161,6 @@ onBeforeUnmount(() => {
               :disabled="adicionando"
               @click="adicionarAoCarrinho"
             >
-
               <i class="fas fa-shopping-cart"></i>
 
               {{
@@ -1195,7 +1168,6 @@ onBeforeUnmount(() => {
                   ? "Adicionando..."
                   : "Adicionar ao carrinho"
               }}
-
             </button>
 
             <!-- COMPRAR AGORA -->
@@ -1215,6 +1187,5 @@ onBeforeUnmount(() => {
       </Transition>
 
     </template>
-
   </div>
 </template>

@@ -2,7 +2,6 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import "@/assets/css/productCard.css";
 
 const props = defineProps({
   produto: {
@@ -98,10 +97,8 @@ const possuiDesconto = computed(() => {
 });
 
 const precoAtual = computed(() => {
-  const preco = precoOriginal.value;
-  const desconto = percentualDesconto.value;
-
-  const resultado = preco * (1 - desconto / 100);
+  const resultado =
+    precoOriginal.value * (1 - percentualDesconto.value / 100);
 
   return Math.round((resultado + Number.EPSILON) * 100) / 100;
 });
@@ -113,8 +110,35 @@ const formatarPreco = (valor) => {
   });
 };
 
+/* =========================================
+   AVALIAÇÕES
+
+   Só exibe a nota quando a quantidade
+   de avaliações for maior que zero.
+========================================= */
+
+const quantidadeAvaliacoes = computed(() => {
+  return Math.max(
+    0,
+    numeroValido(
+      props.produto.quantidade_avaliacoes ??
+      props.produto.total_avaliacoes ??
+      props.produto.avaliacoes_count ??
+      props.produto.quantidade
+    ) ?? 0
+  );
+});
+
 const avaliacao = computed(() => {
-  const valor = numeroValido(props.produto.avaliacao);
+  if (quantidadeAvaliacoes.value <= 0) {
+    return null;
+  }
+
+  const valor = numeroValido(
+    props.produto.avaliacao ??
+    props.produto.media_avaliacoes ??
+    props.produto.media
+  );
 
   if (valor === null || valor <= 0) {
     return null;
@@ -129,7 +153,7 @@ const irParaDetalhes = () => {
     return;
   }
 
-  router.push(`/produto/${idProduto.value}`);
+  router.push(`/produto/${encodeURIComponent(idProduto.value)}`);
 };
 
 const routeAtual = () => {
@@ -214,15 +238,21 @@ watch(
   }
 );
 
-watch(idProduto, () => {
-  favoritoAtual.value = Boolean(props.produto.favorito);
-  erroFavorito.value = "";
-});
+watch(
+  idProduto,
+  () => {
+    favoritoAtual.value = Boolean(props.produto.favorito);
+    erroFavorito.value = "";
+  }
+);
 </script>
 
 <template>
   <article class="produto-card">
-    <div class="produto-card__imagem-container" @click="irParaDetalhes">
+    <div
+      class="produto-card__imagem-container"
+      @click="irParaDetalhes"
+    >
       <img
         v-if="imagemUrl"
         :src="imagemUrl"
@@ -231,7 +261,10 @@ watch(idProduto, () => {
         loading="lazy"
       />
 
-      <div v-else class="produto-card__imagem-placeholder">
+      <div
+        v-else
+        class="produto-card__imagem-placeholder"
+      >
         <i class="fa-solid fa-bread-slice"></i>
         <span>Imagem indisponível</span>
       </div>
@@ -254,13 +287,16 @@ watch(idProduto, () => {
           ? 'Remover dos favoritos'
           : 'Adicionar aos favoritos'
       "
+      :aria-pressed="favoritoAtual"
       @click.stop="toggleFavorito"
     >
       <i
         :class="
-          favoritoAtual
-            ? 'fa-solid fa-heart'
-            : 'fa-regular fa-heart'
+          carregandoFavorito
+            ? 'fa-solid fa-spinner fa-spin'
+            : favoritoAtual
+              ? 'fa-solid fa-heart'
+              : 'fa-regular fa-heart'
         "
       ></i>
     </button>
@@ -273,12 +309,17 @@ watch(idProduto, () => {
         {{ nomeProduto }}
       </h3>
 
+      <!-- Só aparece se existirem avaliações reais -->
       <div
-        v-if="avaliacao"
+        v-if="avaliacao !== null"
         class="produto-card__avaliacao"
+        :aria-label="`Avaliação média: ${avaliacao} de 5, baseada em ${quantidadeAvaliacoes} avaliações`"
       >
         <i class="fa-solid fa-star"></i>
         <span>{{ avaliacao }}</span>
+        <span class="produto-card__quantidade">
+          ({{ quantidadeAvaliacoes }})
+        </span>
       </div>
 
       <div class="produto-card__precos">
@@ -313,12 +354,8 @@ watch(idProduto, () => {
     </div>
   </article>
 </template>
+
 <style scoped>
-
-/* =========================================
-   CARD DO PRODUTO
-========================================= */
-
 .produto-card {
   position: relative;
   display: flex;
@@ -327,13 +364,10 @@ watch(idProduto, () => {
   min-width: 0;
   overflow: hidden;
   box-sizing: border-box;
-
   background: #fff;
   border: 1px solid rgba(94, 48, 35, 0.08);
   border-radius: 20px;
-
   box-shadow: 0 5px 18px rgba(94, 48, 35, 0.07);
-
   transition:
     transform 0.25s ease,
     box-shadow 0.25s ease,
@@ -350,9 +384,7 @@ watch(idProduto, () => {
   transform: scale(0.985);
 }
 
-/* =========================================
-   IMAGEM
-========================================= */
+/* IMAGEM */
 
 .produto-card__imagem-container {
   position: relative;
@@ -368,7 +400,6 @@ watch(idProduto, () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-
   transition: transform 0.4s ease;
 }
 
@@ -382,10 +413,8 @@ watch(idProduto, () => {
   align-items: center;
   justify-content: center;
   gap: 9px;
-
   width: 100%;
   height: 100%;
-
   color: #b89764;
   font-size: 1.8rem;
 }
@@ -395,60 +424,44 @@ watch(idProduto, () => {
   font-weight: 600;
 }
 
-/* =========================================
-   DESCONTO
-========================================= */
+/* DESCONTO */
 
 .produto-card__desconto {
   position: absolute;
   top: 12px;
   left: 12px;
   z-index: 2;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   padding: 6px 10px;
-
   border-radius: 20px;
   background: #9d4b39;
   color: #fff;
-
   font-size: 0.7rem;
   font-weight: 800;
-
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
 }
 
-/* =========================================
-   FAVORITOS
-========================================= */
+/* FAVORITOS */
 
 .produto-card__favorito {
   position: absolute;
   top: 11px;
   right: 11px;
   z-index: 4;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   width: 37px;
   height: 37px;
-
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 50%;
-
   background: rgba(255, 255, 255, 0.94);
   color: #8c7566;
-
   font-size: 0.95rem;
   cursor: pointer;
-
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
-
   transition:
     transform 0.2s ease,
     color 0.2s ease,
@@ -469,52 +482,39 @@ watch(idProduto, () => {
   cursor: wait;
 }
 
-/* =========================================
-   CONTEÚDO
-========================================= */
+/* CONTEÚDO */
 
 .produto-card__conteudo {
   display: flex;
   flex-direction: column;
   flex: 1;
-
   padding: 13px 14px 14px;
   min-width: 0;
   box-sizing: border-box;
 }
 
-/* =========================================
-   NOME
-========================================= */
+/* NOME */
 
 .produto-card__nome {
   margin: 0 0 8px;
-
   overflow: hidden;
-
   color: #5e3023;
   font-family: "Imprima", Georgia, serif;
   font-size: 1.08rem;
   font-weight: 700;
   line-height: 1.25;
-
   text-overflow: ellipsis;
   white-space: nowrap;
-
   cursor: pointer;
 }
 
-/* =========================================
-   AVALIAÇÃO
-========================================= */
+/* AVALIAÇÃO */
 
 .produto-card__avaliacao {
   display: flex;
   align-items: center;
   gap: 5px;
-
   margin-bottom: 9px;
-
   color: #8b6b3f;
   font-size: 0.76rem;
   font-weight: 700;
@@ -525,16 +525,19 @@ watch(idProduto, () => {
   font-size: 0.72rem;
 }
 
-/* =========================================
-   PREÇOS
-========================================= */
+.produto-card__quantidade {
+  color: #9b8b7e;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+/* PREÇOS */
 
 .produto-card__precos {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-
   margin-top: auto;
   margin-bottom: 12px;
 }
@@ -553,47 +556,35 @@ watch(idProduto, () => {
   line-height: 1.1;
 }
 
-/* =========================================
-   ERRO DE FAVORITO
-========================================= */
+/* ERRO */
 
 .produto-card__erro {
   margin: 0 0 10px;
   padding: 8px 9px;
-
   border-radius: 8px;
   background: #fff1ef;
   color: #a33d32;
-
   font-size: 0.7rem;
   line-height: 1.4;
 }
 
-/* =========================================
-   BOTÃO VER PRODUTO
-========================================= */
+/* BOTÃO */
 
 .produto-card__botao {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-
   width: 100%;
   min-height: 37px;
   padding: 8px 12px;
-
   border: none;
   border-radius: 11px;
-
   background: #5e3023;
   color: #fff;
-
   font-size: 0.75rem;
   font-weight: 700;
-
   cursor: pointer;
-
   transition:
     background 0.2s ease,
     transform 0.2s ease;
@@ -617,9 +608,14 @@ watch(idProduto, () => {
   transform: scale(0.97);
 }
 
-/* =========================================
-   RESPONSIVIDADE
-========================================= */
+/* ACESSIBILIDADE */
+
+.produto-card button:focus-visible {
+  outline: 3px solid #b89764;
+  outline-offset: 3px;
+}
+
+/* RESPONSIVIDADE */
 
 @media (max-width: 700px) {
   .produto-card__imagem-container {
@@ -695,7 +691,7 @@ watch(idProduto, () => {
   .produto-card *::before,
   .produto-card *::after {
     transition: none !important;
+    animation: none !important;
   }
 }
-
 </style>

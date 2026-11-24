@@ -484,3 +484,167 @@
     font-size: .6rem;
   }
 }
+
+/* =========================================
+   COMPLEMENTO - CARTEIRA DE CUPONS
+   Padaria Martins
+========================================= */
+
+/* Separação entre disponíveis e utilizados */
+
+.grupo-cupons + .grupo-cupons {
+  margin-top: 32px;
+  padding-top: 28px;
+  border-top: 1px solid #eee5d9;
+}
+
+.grupo-utilizados .cupons-intro {
+  margin-bottom: 20px;
+}
+
+/* Status dos cupons */
+
+.status-disponivel {
+  background: #efe7d8;
+  color: #80633e;
+}
+
+.status-utilizado {
+  background: #e9e5df;
+  color: #77716a;
+}
+
+/* Cartão de cupom utilizado */
+
+.cupom-utilizado {
+  border-color: #e3ddd4;
+  background: linear-gradient(
+    145deg,
+    #f9f7f3,
+    #f1eee9
+  );
+}
+
+.cupom-utilizado .cupom-icone {
+  background: #e9e5df;
+  color: #81786e;
+}
+
+.cupom-utilizado .cupom-status {
+  background: #e9e5df;
+  color: #77716a;
+}
+
+/* Código do cupom */
+
+.cupom-codigo-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cupom-codigo {
+  min-width: 0;
+}
+
+.cupom-codigo strong {
+  overflow-wrap: anywhere;
+}
+
+/* Botão copiar código */
+
+.btn-copiar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 9px 12px;
+  border: 1px solid #dfc9a9;
+  border-radius: 10px;
+  background: #fffaf3;
+  color: #80633e;
+  font-family: inherit;
+  font-size: .68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.btn-copiar:hover:not(:disabled) {
+  border-color: #b89764;
+  background: #f4ecdf;
+  transform: translateY(-1px);
+}
+
+.btn-copiar:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.btn-copiar:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+/* Botão nos cupons utilizados */
+
+.cupom-utilizado .btn-copiar {
+  border-color: #ded8cf;
+  background: #efede9;
+  color: #716a61;
+}
+
+.cupom-utilizado .btn-copiar:hover:not(:disabled) {
+  background: #e7e2da;
+}
+
+/* Histórico */
+
+.grupo-utilizados .cupom-card .cupom-data {
+  color: #928779;
+}
+
+/* =========================================
+   RESPONSIVIDADE DOS CUPONS
+========================================= */
+
+@media (max-width: 680px) {
+  .grupo-cupons + .grupo-cupons {
+    margin-top: 27px;
+    padding-top: 23px;
+  }
+
+  .cupom-codigo {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cupom-codigo-info {
+    width: 100%;
+  }
+
+  .btn-copiar {
+    width: 100%;
+    min-height: 38px;
+  }
+}
+
+@media (max-width: 380px) {
+  .cupom-card {
+    padding: 15px;
+  }
+
+  .cupom-codigo {
+    padding: 10px;
+  }
+
+  .cupom-codigo strong {
+    font-size: .7rem;
+  }
+
+  .btn-copiar {
+    font-size: .65rem;
+  }
+}
