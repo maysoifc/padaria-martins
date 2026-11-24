@@ -1,3 +1,4 @@
+
 <script setup>
 import { computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
@@ -17,7 +18,10 @@ const { produtos, carregarProdutos } = useProducts();
 
 const modules = [Pagination, Autoplay];
 
-// Categorias
+// =========================================================
+// CATEGORIAS
+// =========================================================
+
 const categorias = [
   { nome: "Pães", icone: "fa-bread-slice" },
   { nome: "Doces", icone: "fa-cookie-bite" },
@@ -25,25 +29,79 @@ const categorias = [
   { nome: "Bebidas", icone: "fa-mug-hot" },
 ];
 
-// Seleciona os 7 produtos mais bem avaliados
+// =========================================================
+// CONVERSÃO DE NOTA
+// =========================================================
+
+const converterNota = (valor) => {
+  if (valor === null || valor === undefined || valor === "") {
+    return 0;
+  }
+
+  const nota = Number(
+    String(valor).replace(",", ".")
+  );
+
+  return Number.isFinite(nota) ? nota : 0;
+};
+
+// =========================================================
+// PRODUTOS DESTAQUES
+// =========================================================
+
 const produtosDestaques = computed(() => {
   if (!Array.isArray(produtos.value)) {
     return [];
   }
 
-  return [...produtos.value]
-    .map((produto) => ({
-      ...produto,
-      notaOrdenacao: Number(String(produto.avaliacao ?? 0).replace(",", ".")),
-    }))
-    .filter((produto) => Number.isFinite(produto.notaOrdenacao) && produto.notaOrdenacao > 0)
+  return produtos.value
+    .map((produto) => {
+      const nota = converterNota(
+        produto.avaliacao ??
+        produto.media_avaliacoes ??
+        produto.media_avaliacao ??
+        produto.nota_media ??
+        0
+      );
+
+      const quantidade = Number(
+        produto.quantidade_avaliacoes ??
+        produto.total_avaliacoes ??
+        produto.numero_avaliacoes ??
+        0
+      );
+
+      return {
+        ...produto,
+        notaOrdenacao: nota,
+        quantidadeAvaliacoes: Number.isFinite(quantidade)
+          ? quantidade
+          : 0,
+      };
+    })
+    .filter((produto) => {
+      return (
+        produto.notaOrdenacao > 0 &&
+        produto.notaOrdenacao <= 5
+      );
+    })
     .sort((a, b) => {
-      return b.notaOrdenacao - a.notaOrdenacao;
+      if (b.notaOrdenacao !== a.notaOrdenacao) {
+        return b.notaOrdenacao - a.notaOrdenacao;
+      }
+
+      return (
+        b.quantidadeAvaliacoes -
+        a.quantidadeAvaliacoes
+      );
     })
     .slice(0, 7);
 });
 
-// Navegação
+// =========================================================
+// NAVEGAÇÃO
+// =========================================================
+
 const irParaCategoria = (categoria) => {
   router.push({
     path: "/menu",
@@ -55,15 +113,20 @@ const irParaMenu = () => {
   router.push("/menu");
 };
 
-// Carregamento
-onMounted(() => {
-  carregarProdutos();
+// =========================================================
+// CARREGAMENTO
+// =========================================================
+
+onMounted(async () => {
+  await carregarProdutos();
 });
 </script>
 
 <template>
   <div class="home">
+
     <!-- HERO -->
+
     <section class="hero">
       <div class="hero-fundo" aria-hidden="true">
         <span class="decor decor-1"></span>
@@ -85,12 +148,17 @@ onMounted(() => {
           </h1>
 
           <p>
-            Pães, doces e salgados preparados com cuidado, como aqueles sabores que fazem qualquer
+            Pães, doces e salgados preparados com cuidado,
+            como aqueles sabores que fazem qualquer
             momento ficar mais gostoso.
           </p>
 
           <div class="hero-acoes">
-            <button type="button" class="hero-btn" @click="irParaMenu">
+            <button
+              type="button"
+              class="hero-btn"
+              @click="irParaMenu"
+            >
               <span>Conheça nosso menu</span>
               <i class="fa-solid fa-arrow-right"></i>
             </button>
@@ -142,6 +210,7 @@ onMounted(() => {
     </section>
 
     <!-- CATEGORIAS -->
+
     <section class="atalhos">
       <div class="atalhos-cabecalho">
         <span>PARA CADA MOMENTO</span>
@@ -152,7 +221,9 @@ onMounted(() => {
             <em>procurando?</em>
           </h2>
 
-          <span class="titulo-ornamento" aria-hidden="true"> ✦ </span>
+          <span class="titulo-ornamento" aria-hidden="true">
+            ✦
+          </span>
         </div>
       </div>
 
@@ -185,15 +256,22 @@ onMounted(() => {
     </section>
 
     <!-- DESTAQUES -->
+
     <section class="destaques">
       <div class="secao-topo">
         <div>
-          <span class="secao-label"> OS MAIS QUERIDINHOS </span>
+          <span class="secao-label">
+            OS MAIS QUERIDINHOS
+          </span>
 
           <h2>Nossos destaques</h2>
         </div>
 
-        <button type="button" class="ver-todos" @click="irParaMenu">
+        <button
+          type="button"
+          class="ver-todos"
+          @click="irParaMenu"
+        >
           Ver todos
 
           <span>
@@ -202,7 +280,10 @@ onMounted(() => {
         </button>
       </div>
 
-      <div v-if="produtosDestaques.length" class="carrossel-wrapper">
+      <div
+        v-if="produtosDestaques.length"
+        class="carrossel-wrapper"
+      >
         <Swiper
           :modules="modules"
           :slides-per-view="1.35"
@@ -232,18 +313,33 @@ onMounted(() => {
           }"
           class="meu-carrossel"
         >
-          <SwiperSlide v-for="item in produtosDestaques" :key="item.idProduto ?? item.id">
+          <SwiperSlide
+            v-for="item in produtosDestaques"
+            :key="item.idProduto ?? item.id"
+          >
             <ProductCard :produto="item" />
           </SwiperSlide>
         </Swiper>
       </div>
 
-      <p v-else class="sem-produtos">Ainda não temos produtos avaliados. Confira nosso cardápio!</p>
+      <p
+        v-else
+        class="sem-produtos"
+      >
+        Ainda não temos produtos avaliados.
+        Confira nosso cardápio!
+      </p>
     </section>
 
     <!-- FRASE ESPECIAL -->
+
     <section class="frase-especial">
-      <div class="frase-detalhe detalhe-esquerda" aria-hidden="true">✦</div>
+      <div
+        class="frase-detalhe detalhe-esquerda"
+        aria-hidden="true"
+      >
+        ✦
+      </div>
 
       <div class="frase-conteudo">
         <span>UMA PAUSA PARA O QUE FAZ BEM</span>
@@ -253,22 +349,35 @@ onMounted(() => {
           <em>momentos</em> também têm sabor.
         </h2>
 
-        <p>Escolha seu favorito e deixe o resto com a gente.</p>
+        <p>
+          Escolha seu favorito e deixe o resto com a gente.
+        </p>
 
-        <button type="button" @click="irParaMenu">
+        <button
+          type="button"
+          @click="irParaMenu"
+        >
           Fazer meu pedido
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div class="frase-detalhe detalhe-direita" aria-hidden="true">✦</div>
+      <div
+        class="frase-detalhe detalhe-direita"
+        aria-hidden="true"
+      >
+        ✦
+      </div>
     </section>
 
     <!-- PROMOÇÕES -->
+
     <Promocoes />
 
     <!-- SOBRE NÓS -->
+
     <SobreNos />
+
   </div>
 </template>
 
