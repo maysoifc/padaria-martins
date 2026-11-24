@@ -9,23 +9,25 @@ import "@/assets/css/encomendaOpcoes.css";
 const router = useRouter();
 const { produtos, carregarProdutos } = useProducts();
 
-const categoriaSelecionada = ref("salgados");
+// Começa com todos os produtos
+const categoriaSelecionada = ref("");
 const termoBusca = ref("");
 const carrinhoTemp = ref([]);
 
 const imagens = import.meta.glob("@/assets/img/*", {
   eager: true,
-  import: "default"
+  import: "default",
 });
 
+// CARREGAR CARRINHO
 function carregarCarrinho() {
   try {
     const dados = JSON.parse(localStorage.getItem("encomenda") || "[]");
 
     carrinhoTemp.value = Array.isArray(dados)
-      ? dados.map(item => ({
+      ? dados.map((item) => ({
           ...item,
-          qtd: Math.max(1, Number(item.qtd) || 1)
+          qtd: Math.max(1, Number(item.qtd) || 1),
         }))
       : [];
   } catch {
@@ -33,6 +35,7 @@ function carregarCarrinho() {
   }
 }
 
+// SALVAR CARRINHO
 function salvarCarrinho() {
   try {
     localStorage.setItem("encomenda", JSON.stringify(carrinhoTemp.value));
@@ -41,13 +44,15 @@ function salvarCarrinho() {
   }
 }
 
+// ADICIONAR OU REMOVER QUANTIDADE
 function ajustarQtd(produto, delta) {
   const index = carrinhoTemp.value.findIndex(
-    item => String(item.idProduto) === String(produto.idProduto)
+    (item) => String(item.idProduto) === String(produto.idProduto)
   );
 
   if (index !== -1) {
-    const novaQtd = Number(carrinhoTemp.value[index].qtd || 0) + delta;
+    const novaQtd =
+      Number(carrinhoTemp.value[index].qtd || 0) + delta;
 
     if (novaQtd <= 0) {
       carrinhoTemp.value.splice(index, 1);
@@ -55,20 +60,25 @@ function ajustarQtd(produto, delta) {
       carrinhoTemp.value[index].qtd = novaQtd;
     }
   } else if (delta > 0) {
-    carrinhoTemp.value.push({ ...produto, qtd: 1 });
+    carrinhoTemp.value.push({
+      ...produto,
+      qtd: 1,
+    });
   }
 
   salvarCarrinho();
 }
 
+// QUANTIDADE NO CARRINHO
 function getQtdNoCarrinho(id) {
   return Number(
     carrinhoTemp.value.find(
-      item => String(item.idProduto) === String(id)
+      (item) => String(item.idProduto) === String(id)
     )?.qtd || 0
   );
 }
 
+// IMAGENS DOS PRODUTOS
 function getImageUrl(imagem) {
   if (!imagem) return "";
 
@@ -77,20 +87,26 @@ function getImageUrl(imagem) {
   }
 
   const caminho = Object.keys(imagens).find(
-    chave => chave.split("/").pop() === imagem
+    (chave) => chave.split("/").pop() === imagem
   );
 
   return caminho ? imagens[caminho] : "";
 }
 
+// BUSCA DE PRODUTOS
 const produtosFiltrados = computed(() => {
-  const busca = termoBusca.value.trim().toLocaleLowerCase("pt-BR");
+  const busca = termoBusca.value
+    .trim()
+    .toLocaleLowerCase("pt-BR");
 
-  return (produtos.value || []).filter(produto =>
-    String(produto.nome || "").toLocaleLowerCase("pt-BR").includes(busca)
+  return (produtos.value || []).filter((produto) =>
+    String(produto.nome || "")
+      .toLocaleLowerCase("pt-BR")
+      .includes(busca)
   );
 });
 
+// TOTAL DE ITENS
 const totalItens = computed(() =>
   carrinhoTemp.value.reduce(
     (total, item) => total + Number(item.qtd || 0),
@@ -98,20 +114,24 @@ const totalItens = computed(() =>
   )
 );
 
+// VALOR TOTAL
 const valorTotal = computed(() =>
   carrinhoTemp.value.reduce(
     (total, item) =>
-      total + Number(item.preco || 0) * Number(item.qtd || 0),
+      total +
+      Number(item.preco || 0) * Number(item.qtd || 0),
     0
   )
 );
 
-const formatarPreco = valor =>
+// FORMATAÇÃO DE PREÇO
+const formatarPreco = (valor) =>
   Number(valor || 0).toLocaleString("pt-BR", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    maximumFractionDigits: 2,
   });
 
+// IR PARA CHECKOUT
 function irParaCheckout() {
   if (!carrinhoTemp.value.length) {
     alert("Adicione produtos à sua encomenda antes de continuar.");
@@ -122,13 +142,17 @@ function irParaCheckout() {
   router.push({ name: "CheckoutEncomenda" });
 }
 
-watch(categoriaSelecionada, categoria => {
-  carregarProdutos(categoria);
+// ALTERAÇÃO DE CATEGORIA
+watch(categoriaSelecionada, (categoria) => {
+  carregarProdutos(categoria || "");
 });
 
+// INICIALIZAÇÃO
 onMounted(() => {
   carregarCarrinho();
-  carregarProdutos(categoriaSelecionada.value);
+
+  // Carrega todos os produtos ao abrir a página
+  carregarProdutos("");
 });
 </script>
 
@@ -139,15 +163,27 @@ onMounted(() => {
 
     <div class="encomenda-container">
       <header class="page-header">
-        <button type="button" class="btn-voltar" @click="router.back()">
+        <button
+          type="button"
+          class="btn-voltar"
+          @click="router.back()"
+        >
           <i class="fa-solid fa-arrow-left"></i>
           Voltar
         </button>
 
         <div class="header-content">
           <span class="eyebrow">ENCOMENDAS</span>
-          <h1>O que vamos<br /><em>preparar?</em></h1>
-          <p>Escolha seus favoritos e monte sua encomenda do seu jeito.</p>
+
+          <h1>
+            O que vamos
+            <br />
+            <em>preparar?</em>
+          </h1>
+
+          <p>
+            Escolha seus favoritos e monte sua encomenda do seu jeito.
+          </p>
         </div>
 
         <button
@@ -160,19 +196,25 @@ onMounted(() => {
           <span class="cart-icon">
             <i class="fa-solid fa-basket-shopping"></i>
           </span>
-          <span><strong>{{ totalItens }}</strong> itens</span>
+
+          <span>
+            <strong>{{ totalItens }}</strong>
+            itens
+          </span>
         </button>
       </header>
 
       <section class="search-section">
         <label class="search-box">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
+
           <input
             v-model="termoBusca"
             type="search"
             placeholder="O que você está procurando?"
             aria-label="Buscar produtos"
           />
+
           <button
             v-if="termoBusca"
             type="button"
@@ -187,6 +229,7 @@ onMounted(() => {
 
       <section class="category-section">
         <span class="section-label">CATEGORIAS</span>
+
         <CategoryBar v-model="categoriaSelecionada" />
       </section>
 
@@ -194,7 +237,10 @@ onMounted(() => {
         <div class="products-heading">
           <div>
             <span class="section-label">NOSSO CARDÁPIO</span>
-            <h2>{{ termoBusca ? "Resultados da busca" : "Escolha seus favoritos" }}</h2>
+
+            <h2>
+              {{ termoBusca ? "Resultados da busca" : "Escolha seus favoritos" }}
+            </h2>
           </div>
 
           <span class="products-count">
@@ -203,12 +249,17 @@ onMounted(() => {
           </span>
         </div>
 
-        <div v-if="produtosFiltrados.length" class="lista-itens">
+        <div
+          v-if="produtosFiltrados.length"
+          class="lista-itens"
+        >
           <article
             v-for="item in produtosFiltrados"
             :key="item.idProduto"
             class="item-card"
-            :class="{ 'has-item': getQtdNoCarrinho(item.idProduto) > 0 }"
+            :class="{
+              'has-item': getQtdNoCarrinho(item.idProduto) > 0
+            }"
           >
             <div class="product-image-wrapper">
               <img
@@ -234,14 +285,20 @@ onMounted(() => {
 
             <div class="info">
               <h3>{{ item.nome }}</h3>
+
               <p class="description">
                 Uma escolha especial para deixar seu momento ainda melhor.
               </p>
 
               <div class="product-bottom">
-                <span class="preco">R$ {{ formatarPreco(item.preco) }}</span>
+                <span class="preco">
+                  R$ {{ formatarPreco(item.preco) }}
+                </span>
 
-                <div class="mini-selector" :aria-label="`Quantidade de ${item.nome}`">
+                <div
+                  class="mini-selector"
+                  :aria-label="`Quantidade de ${item.nome}`"
+                >
                   <button
                     type="button"
                     class="btn-mini minus"
@@ -274,30 +331,50 @@ onMounted(() => {
           <span class="empty-symbol">
             <i class="fa-solid fa-magnifying-glass"></i>
           </span>
+
           <h3>Nenhum produto encontrado</h3>
-          <p>Tente outro nome ou escolha uma categoria diferente.</p>
-          <button type="button" class="empty-button" @click="termoBusca = ''">
+
+          <p>
+            Tente outro nome ou escolha uma categoria diferente.
+          </p>
+
+          <button
+            type="button"
+            class="empty-button"
+            @click="termoBusca = ''"
+          >
             Limpar busca
           </button>
         </div>
       </section>
     </div>
 
-    <aside v-if="totalItens > 0" class="floating-checkout">
+    <aside
+      v-if="totalItens > 0"
+      class="floating-checkout"
+    >
       <div class="checkout-left">
         <span class="checkout-cart-icon">
           <i class="fa-solid fa-basket-shopping"></i>
         </span>
+
         <div class="checkout-info">
           <span>
             {{ totalItens }}
             {{ totalItens === 1 ? "item selecionado" : "itens selecionados" }}
           </span>
-          <strong>R$ {{ formatarPreco(valorTotal) }}</strong>
+
+          <strong>
+            R$ {{ formatarPreco(valorTotal) }}
+          </strong>
         </div>
       </div>
 
-      <button type="button" class="btn-checkout" @click="irParaCheckout">
+      <button
+        type="button"
+        class="btn-checkout"
+        @click="irParaCheckout"
+      >
         Continuar
         <i class="fa-solid fa-arrow-right"></i>
       </button>
