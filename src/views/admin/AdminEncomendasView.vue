@@ -240,11 +240,40 @@ const atualizarStatus = async (item, novoStatus) => {
   if (id == null || atualizandoId.value !== null) return;
   if (statusNormalizado(item) === novoStatus) return;
 
+  // Evita confirmar automaticamente uma compra cancelada.
+  if (novoStatus === "cancelado" && item.pagamento_confirmado) {
+    const confirmar = window.confirm(
+      "Esta compra já possui pagamento confirmado. Deseja realmente cancelar a encomenda? O selo já creditado não será estornado automaticamente."
+    );
+
+    if (!confirmar) {
+      await carregarEncomendas();
+      return;
+    }
+  }
+
   atualizandoId.value = id;
   erro.value = "";
 
   try {
     const token = obterToken();
+
+    const confirmarPagamento = [
+      "preparando",
+      "pronto",
+      "finalizado"
+    ].includes(novoStatus);
+
+    const corpo = {
+      status: novoStatus
+    };
+
+    // O backend credita o selo quando recebe a confirmação.
+    // A confirmação é enviada somente quando o administrador
+    // avança a encomenda para uma etapa de produção/entrega.
+    if (confirmarPagamento) {
+      corpo.pagamento_confirmado = true;
+    }
 
     const resposta = await fetch(`${API_URL}/compras/admin/${id}/`, {
       method: "PATCH",
@@ -253,7 +282,7 @@ const atualizarStatus = async (item, novoStatus) => {
         Authorization: `Bearer ${token}`,
         Accept: "application/json"
       },
-      body: JSON.stringify({ status: novoStatus })
+      body: JSON.stringify(corpo)
     });
 
     if (!resposta.ok) {
@@ -282,9 +311,16 @@ const atualizarStatus = async (item, novoStatus) => {
       ? {}
       : await resposta.json();
 
+    const encomendaAtualizada = {
+      ...item,
+      ...dadosAtualizados,
+      status: novoStatus,
+      ...(confirmarPagamento ? { pagamento_confirmado: true } : {})
+    };
+
     encomendas.value = encomendas.value.map((encomenda) => {
       return idEncomenda(encomenda) === id
-        ? { ...encomenda, ...dadosAtualizados, status: novoStatus }
+        ? encomendaAtualizada
         : encomenda;
     });
 
@@ -292,11 +328,7 @@ const atualizarStatus = async (item, novoStatus) => {
       encomendaSelecionada.value &&
       idEncomenda(encomendaSelecionada.value) === id
     ) {
-      encomendaSelecionada.value = {
-        ...encomendaSelecionada.value,
-        ...dadosAtualizados,
-        status: novoStatus
-      };
+      encomendaSelecionada.value = encomendaAtualizada;
     }
   } catch (error) {
     erro.value = error.message || "Erro ao atualizar o status.";

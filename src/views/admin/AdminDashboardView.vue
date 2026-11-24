@@ -1,17 +1,15 @@
-
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const API_URL = (
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
-).replace(/\/+$/, "");
-
-const adminUsername = ref(
-  localStorage.getItem("adminUsername") || "Administrador"
+const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(
+  /\/+$/,
+  "",
 );
+
+const adminUsername = ref(localStorage.getItem("adminUsername") || "Administrador");
 
 const carregando = ref(true);
 const erro = ref("");
@@ -21,11 +19,14 @@ const resumo = ref({
   produtos: 0,
   categorias: 0,
   encomendas: 0,
+  compras: 0,
   usuarios: 0,
-  faturamento_mes: 0,
+  cupons: null,
   pendentes: 0,
+  encomendas_pendentes: 0,
+  pagamentos_confirmados: 0,
   concluidas: 0,
-  ticket_medio: 0
+  ticket_medio: 0,
 });
 
 const grafico = ref([]);
@@ -34,6 +35,13 @@ const produtosMaisVendidos = ref([]);
 const alertas = ref([]);
 
 let intervaloAtualizacao = null;
+
+const tokenAdmin = () => localStorage.getItem("adminToken");
+
+const headersAdmin = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${tokenAdmin()}`,
+});
 
 const primeiroNome = computed(() => {
   return adminUsername.value.trim().split(/\s+/)[0] || "Administrador";
@@ -44,15 +52,12 @@ const dataAtual = computed(() => {
     weekday: "long",
     day: "2-digit",
     month: "long",
-    year: "numeric"
+    year: "numeric",
   }).format(new Date());
 });
 
 const maiorValorGrafico = computed(() => {
-  return Math.max(
-    1,
-    ...grafico.value.map(item => Number(item.encomendas || 0))
-  );
+  return Math.max(1, ...grafico.value.map((item) => Number(item.encomendas || 0)));
 });
 
 const pontosGrafico = computed(() => {
@@ -65,18 +70,20 @@ const pontosGrafico = computed(() => {
 
   if (!grafico.value.length) return "";
 
-  return grafico.value.map((item, index) => {
-    const x = margemX + (
-      grafico.value.length === 1
-        ? areaLargura / 2
-        : index * areaLargura / (grafico.value.length - 1)
-    );
+  return grafico.value
+    .map((item, index) => {
+      const x =
+        margemX +
+        (grafico.value.length === 1
+          ? areaLargura / 2
+          : (index * areaLargura) / (grafico.value.length - 1));
 
-    const y = altura - margemY -
-      (Number(item.encomendas || 0) / maiorValorGrafico.value) * areaAltura;
+      const y =
+        altura - margemY - (Number(item.encomendas || 0) / maiorValorGrafico.value) * areaAltura;
 
-    return `${x},${y}`;
-  }).join(" ");
+      return `${x},${y}`;
+    })
+    .join(" ");
 });
 
 const areaGrafico = computed(() => {
@@ -90,24 +97,15 @@ const areaGrafico = computed(() => {
 });
 
 const totalEncomendasGrafico = computed(() => {
-  return grafico.value.reduce(
-    (total, item) => total + Number(item.encomendas || 0),
-    0
-  );
+  return grafico.value.reduce((total, item) => total + Number(item.encomendas || 0), 0);
 });
 
 const faturamentoGrafico = computed(() => {
-  return grafico.value.reduce(
-    (total, item) => total + Number(item.faturamento || 0),
-    0
-  );
+  return grafico.value.reduce((total, item) => total + Number(item.faturamento || 0), 0);
 });
 
 const maiorVendaProduto = computed(() => {
-  return Math.max(
-    1,
-    ...produtosMaisVendidos.value.map(item => Number(item.quantidade || 0))
-  );
+  return Math.max(1, ...produtosMaisVendidos.value.map((item) => Number(item.quantidade || 0)));
 });
 
 const indicadores = computed(() => [
@@ -119,17 +117,24 @@ const indicadores = computed(() => [
     icone: "fa-bread-slice",
     cor: "terracota",
     rota: "/admin/produtos",
-    tipo: "numero"
   },
   {
     id: "encomendas",
     titulo: "Encomendas",
-    descricao: "Pedidos registrados",
+    descricao: "Total de pedidos registrados",
     valor: resumo.value.encomendas,
     icone: "fa-receipt",
     cor: "dourado",
     rota: "/admin/encomendas",
-    tipo: "numero"
+  },
+  {
+    id: "compras",
+    titulo: "Compras",
+    descricao: "Total de pedidos feitos pelo carrinho",
+    valor: resumo.value.compras,
+    icone: "fa-bag-shopping",
+    cor: "terracota",
+    rota: "/admin/compras",
   },
   {
     id: "usuarios",
@@ -139,46 +144,65 @@ const indicadores = computed(() => [
     icone: "fa-users",
     cor: "oliva",
     rota: "/admin/usuarios",
-    tipo: "numero"
   },
   {
-    id: "faturamento",
-    titulo: "Faturamento",
-    descricao: "Faturamento do mês",
-    valor: resumo.value.faturamento_mes,
-    icone: "fa-wallet",
+    id: "cupons",
+    titulo: "Cupons de fidelidade",
+    descricao:
+      resumo.value.cupons === null
+        ? "Aguardando integração com a API"
+        : "Cupons registrados no sistema",
+    valor: resumo.value.cupons,
+    icone: "fa-ticket",
     cor: "dourado",
-    tipo: "moeda"
+    rota: null,
   },
   {
     id: "pendentes",
-    titulo: "Pendentes",
-    descricao: "Aguardando atendimento",
+    titulo: "Aguardando pagamento",
+    descricao: "Compras sem pagamento confirmado",
     valor: resumo.value.pendentes,
     icone: "fa-clock",
     cor: "terracota",
+    rota: "/admin/compras",
+  },
+  {
+    id: "confirmados",
+    titulo: "Pagamentos confirmados",
+    descricao: "Compras com pagamento verificado",
+    valor: resumo.value.pagamentos_confirmados,
+    icone: "fa-circle-check",
+    cor: "oliva",
+    rota: "/admin/compras",
+  },
+  {
+    id: "encomendas_pendentes",
+    titulo: "Encomendas pendentes",
+    descricao: "Pedidos aguardando atendimento",
+    valor: resumo.value.encomendas_pendentes,
+    icone: "fa-hourglass-half",
+    cor: "terracota",
     rota: "/admin/encomendas",
-    tipo: "numero"
   },
   {
     id: "concluidas",
-    titulo: "Concluídas",
-    descricao: "Pedidos finalizados",
+    titulo: "Encomendas concluídas",
+    descricao: "Pedidos finalizados ou entregues",
     valor: resumo.value.concluidas,
-    icone: "fa-circle-check",
+    icone: "fa-check-double",
     cor: "oliva",
-    tipo: "numero"
-  }
+    rota: "/admin/encomendas",
+  },
 ]);
 
-const formatarMoeda = valor => {
+const formatarMoeda = (valor) => {
   return Number(valor || 0).toLocaleString("pt-BR", {
     style: "currency",
-    currency: "BRL"
+    currency: "BRL",
   });
 };
 
-const formatarData = data => {
+const formatarData = (data) => {
   if (!data) return "—";
 
   const dataConvertida = new Date(data);
@@ -189,44 +213,154 @@ const formatarData = data => {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(dataConvertida);
 };
 
-const formatarQuantidade = valor => {
+const formatarQuantidade = (valor) => {
+  if (valor === null || valor === undefined) return "—";
   return Number(valor || 0).toLocaleString("pt-BR");
 };
 
-const navegar = rota => {
+const navegar = (rota) => {
   if (rota) router.push(rota);
 };
 
-const normalizarStatus = status => {
-  const valor = String(status || "").toLowerCase();
+const normalizarTexto = (valor) => {
+  return String(valor ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_");
+};
 
-  if (
-    valor.includes("conclu") ||
-    valor.includes("finaliz") ||
-    valor.includes("entreg")
-  ) {
+const obterStatusCompra = (compra) => {
+  return compra?.status ?? compra?.status_encomenda ?? compra?.situacao ?? compra?.estado ?? "";
+};
+
+const normalizarStatusEncomenda = (compra) => {
+  const status = normalizarTexto(obterStatusCompra(compra));
+
+  const equivalencias = {
+    aguardando: "pendente",
+    recebido: "pendente",
+    em_aberto: "pendente",
+    em_preparacao: "preparando",
+    em_preparo: "preparando",
+    preparando: "preparando",
+    pronto_para_retirada: "pronto",
+    concluido: "finalizado",
+    concluida: "finalizado",
+    entregue: "finalizado",
+    finalizada: "finalizado",
+    finalizado: "finalizado",
+    cancelada: "cancelado",
+  };
+
+  return equivalencias[status] || status;
+};
+
+const normalizarStatusVisual = (status) => {
+  const valor = normalizarTexto(status);
+
+  if (valor.includes("conclu") || valor.includes("finaliz") || valor.includes("entreg")) {
     return "concluida";
   }
 
-  if (
-    valor.includes("cancel")
-  ) {
+  if (valor.includes("cancel")) {
     return "cancelada";
   }
 
-  if (
-    valor.includes("pend") ||
-    valor.includes("aguard") ||
-    valor.includes("prepar")
-  ) {
+  if (valor.includes("pend") || valor.includes("aguard") || valor.includes("prepar")) {
     return "pendente";
   }
 
   return "andamento";
+};
+
+const normalizarLista = (dados) => {
+  if (Array.isArray(dados)) return dados;
+
+  if (Array.isArray(dados?.results)) return dados.results;
+  if (Array.isArray(dados?.compras)) return dados.compras;
+  if (Array.isArray(dados?.encomendas)) return dados.encomendas;
+  if (Array.isArray(dados?.pedidos)) return dados.pedidos;
+  if (Array.isArray(dados?.data)) return dados.data;
+  if (Array.isArray(dados?.data?.results)) return dados.data.results;
+
+  return [];
+};
+
+/*
+ * Normaliza os produtos que chegam da API.
+ * O ranking é ordenado pela quantidade real informada pelo backend.
+ */
+const normalizarProdutosMaisVendidos = (lista) => {
+  if (!Array.isArray(lista)) return [];
+
+  return lista
+    .map((produto) => ({
+      ...produto,
+      id: produto.id ?? produto.produto_id ?? produto.id_produto,
+      nome:
+        produto.nome ?? produto.produto_nome ?? produto.titulo ?? produto.nome_produto ?? "Produto",
+      quantidade: Number(
+        produto.quantidade ??
+          produto.total_vendido ??
+          produto.quantidade_vendida ??
+          produto.vendas ??
+          produto.total ??
+          0,
+      ),
+    }))
+    .filter((produto) => Number.isFinite(produto.quantidade) && produto.quantidade > 0)
+    .sort((a, b) => b.quantidade - a.quantidade)
+    .slice(0, 5);
+};
+
+const carregarResumoCompras = async () => {
+  const resposta = await fetch(`${API_URL}/compras/admin/`, {
+    method: "GET",
+    headers: headersAdmin(),
+  });
+
+  const dados = await resposta.json().catch(() => []);
+
+  if (resposta.status === 401 || resposta.status === 403) {
+    throw new Error("SESSAO_EXPIRADA");
+  }
+
+  if (!resposta.ok) {
+    throw new Error(
+      dados.detail || dados.erro || "Não foi possível carregar os dados das compras.",
+    );
+  }
+
+  const compras = normalizarLista(dados).filter((compra) => compra && typeof compra === "object");
+
+  const statusNormalizados = compras.map((compra) => ({
+    compra,
+    status: normalizarStatusEncomenda(compra),
+  }));
+
+  resumo.value.compras = compras.length;
+
+  resumo.value.pendentes = compras.filter((compra) => {
+    return !Boolean(compra.pagamento_confirmado);
+  }).length;
+
+  resumo.value.pagamentos_confirmados = compras.filter((compra) => {
+    return Boolean(compra.pagamento_confirmado);
+  }).length;
+
+  resumo.value.encomendas_pendentes = statusNormalizados.filter((item) => {
+    return item.status === "pendente";
+  }).length;
+
+  resumo.value.concluidas = statusNormalizados.filter((item) => {
+    return item.status === "finalizado";
+  }).length;
 };
 
 const carregarDashboard = async () => {
@@ -234,7 +368,7 @@ const carregarDashboard = async () => {
   erro.value = "";
 
   try {
-    const token = localStorage.getItem("adminToken");
+    const token = tokenAdmin();
 
     if (!token) {
       router.replace("/admin/login");
@@ -243,51 +377,64 @@ const carregarDashboard = async () => {
 
     const resposta = await fetch(`${API_URL}/admin/dashboard/`, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json"
-      }
+      headers: headersAdmin(),
     });
 
     if (resposta.status === 401 || resposta.status === 403) {
-      localStorage.removeItem("adminToken");
-      localStorage.removeItem("adminRefresh");
-      router.replace("/admin/login");
-      return;
+      throw new Error("SESSAO_EXPIRADA");
     }
 
     if (!resposta.ok) {
-      throw new Error(
-        "Não foi possível carregar os dados do dashboard."
-      );
+      throw new Error("Não foi possível carregar os dados do dashboard.");
     }
 
     const dados = await resposta.json();
 
     resumo.value = {
       ...resumo.value,
-      ...(dados.resumo || {})
+      ...(dados.resumo || {}),
     };
 
-    grafico.value = Array.isArray(dados.grafico)
-      ? dados.grafico
-      : [];
+    await carregarResumoCompras();
 
-    ultimasEncomendas.value = Array.isArray(dados.ultimas_encomendas)
-      ? dados.ultimas_encomendas
-      : [];
+    grafico.value = Array.isArray(dados.grafico) ? dados.grafico : [];
 
-    produtosMaisVendidos.value = Array.isArray(dados.produtos_mais_vendidos)
-      ? dados.produtos_mais_vendidos
-      : [];
+    ultimasEncomendas.value = normalizarLista(dados.ultimas_encomendas).map((compra) => ({
+      ...compra,
+      id: compra.id ?? compra.idCompra ?? compra.id_compra,
+      cliente: compra.cliente ?? compra.nome_cliente ?? compra.nome ?? "Cliente",
+      data: compra.data ?? compra.criado_em ?? compra.data_compra ?? compra.created_at,
+      pagamento:
+        compra.pagamento ?? compra.forma_pagamento ?? compra.formaPagamento ?? "Não informado",
+      total: Number(compra.total ?? compra.valor_total ?? compra.total_compra ?? 0),
+      status: compra.status ?? compra.status_encomenda ?? compra.situacao ?? "Em andamento",
+    }));
 
-    alertas.value = Array.isArray(dados.alertas)
-      ? dados.alertas
-      : [];
+    /*
+     * Aqui está a correção do ranking:
+     * recebe o ranking calculado pelo Django, normaliza,
+     * ordena e apresenta somente os cinco mais vendidos.
+     */
+    produtosMaisVendidos.value = normalizarProdutosMaisVendidos(dados.produtos_mais_vendidos);
+
+    alertas.value = Array.isArray(dados.alertas) ? dados.alertas : [];
+
+    resumo.value.cupons =
+      dados.resumo?.cupons !== undefined && dados.resumo?.cupons !== null
+        ? Number(dados.resumo.cupons)
+        : null;
 
     ultimaAtualizacao.value = new Date();
-
   } catch (error) {
+    if (error.message === "SESSAO_EXPIRADA") {
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("adminRefresh");
+      localStorage.removeItem("adminUsername");
+
+      router.replace("/admin/login");
+      return;
+    }
+
     erro.value = error.message || "Erro ao conectar com o servidor.";
   } finally {
     carregando.value = false;
@@ -316,8 +463,6 @@ onUnmounted(() => {
 
 <template>
   <main class="dashboard">
-
-    <!-- HERO -->
     <section class="hero-admin">
       <div class="hero-textura"></div>
       <div class="hero-circulo hero-circulo-1"></div>
@@ -330,9 +475,7 @@ onUnmounted(() => {
             PAINEL ADMINISTRATIVO
           </div>
 
-          <p class="saudacao">
-            Bem-vindo, {{ primeiroNome }}.
-          </p>
+          <p class="saudacao">Bem-vindo, {{ primeiroNome }}.</p>
 
           <h1>
             A tradição de hoje,
@@ -340,8 +483,7 @@ onUnmounted(() => {
           </h1>
 
           <p class="hero-descricao">
-            Sua padaria, sua história, sua gestão.
-            Tudo começa com cuidado em cada detalhe.
+            Sua padaria, sua história, sua gestão. Tudo começa com cuidado em cada detalhe.
           </p>
 
           <div class="hero-data">
@@ -349,11 +491,7 @@ onUnmounted(() => {
             {{ dataAtual }}
           </div>
 
-          <button
-            type="button"
-            class="hero-botao"
-            @click="navegar('/admin/produtos')"
-          >
+          <button type="button" class="hero-botao" @click="navegar('/admin/produtos')">
             Gerenciar cardápio
             <i class="fa-solid fa-arrow-right"></i>
           </button>
@@ -384,7 +522,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- VISÃO GERAL -->
     <section class="secao-visao">
       <div class="secao-cabecalho">
         <div>
@@ -399,10 +536,7 @@ onUnmounted(() => {
           :disabled="carregando"
           @click="carregarDashboard"
         >
-          <i
-            class="fa-solid fa-rotate"
-            :class="{ girando: carregando }"
-          ></i>
+          <i class="fa-solid fa-rotate" :class="{ girando: carregando }"></i>
           Atualizar
         </button>
       </div>
@@ -411,9 +545,7 @@ onUnmounted(() => {
         <i class="fa-solid fa-circle-exclamation"></i>
         <span>{{ erro }}</span>
 
-        <button type="button" @click="carregarDashboard">
-          Tentar novamente
-        </button>
+        <button type="button" @click="carregarDashboard">Tentar novamente</button>
       </div>
 
       <div class="metricas">
@@ -436,9 +568,11 @@ onUnmounted(() => {
             <span v-if="carregando" class="valor-carregando"></span>
 
             <strong v-else>
-              {{ item.tipo === "moeda"
-                ? formatarMoeda(item.valor)
-                : formatarQuantidade(item.valor) }}
+              {{
+                item.valor === null || item.valor === undefined
+                  ? "—"
+                  : formatarQuantidade(item.valor)
+              }}
             </strong>
 
             <h3>{{ item.titulo }}</h3>
@@ -446,38 +580,19 @@ onUnmounted(() => {
           </div>
 
           <div class="metrica-rodape">
-            <span>{{ item.rota ? "Acessar área" : "Resumo do período" }}</span>
+            <span>
+              {{ item.rota ? "Acessar área" : "Indicador informativo" }}
+            </span>
             <i
-              :class="item.rota
-                ? 'fa-solid fa-arrow-up-right-from-square'
-                : 'fa-solid fa-chart-line'"
+              :class="
+                item.rota ? 'fa-solid fa-arrow-up-right-from-square' : 'fa-solid fa-chart-line'
+              "
             ></i>
           </div>
         </button>
       </div>
     </section>
 
-    <!-- TICKET MÉDIO -->
-    <section class="resumo-financeiro">
-      <div class="resumo-financeiro-icone">
-        <i class="fa-solid fa-chart-simple"></i>
-      </div>
-
-      <div class="resumo-financeiro-texto">
-        <span>VALOR MÉDIO POR PEDIDO</span>
-        <strong v-if="!carregando">
-          {{ formatarMoeda(resumo.ticket_medio) }}
-        </strong>
-        <span v-else class="valor-carregando"></span>
-      </div>
-
-      <div class="resumo-financeiro-info">
-        <i class="fa-solid fa-circle-info"></i>
-        <span>Ticket médio do período informado pela API</span>
-      </div>
-    </section>
-
-    <!-- GRÁFICO -->
     <section class="painel-grafico">
       <div class="grafico-cabecalho">
         <div>
@@ -500,7 +615,7 @@ onUnmounted(() => {
       <div v-else-if="!grafico.length" class="grafico-vazio">
         <i class="fa-solid fa-chart-column"></i>
         <strong>Sem dados para exibir</strong>
-        <span>Assim que houver registros, o gráfico aparecerá aqui.</span>
+        <span> Assim que houver registros, o gráfico aparecerá aqui. </span>
       </div>
 
       <div v-else class="grafico-area">
@@ -521,15 +636,9 @@ onUnmounted(() => {
             class="linha-grade"
           />
 
-          <polygon
-            :points="areaGrafico"
-            class="grafico-preenchimento"
-          />
+          <polygon :points="areaGrafico" class="grafico-preenchimento" />
 
-          <polyline
-            :points="pontosGrafico"
-            class="grafico-linha"
-          />
+          <polyline :points="pontosGrafico" class="grafico-linha" />
 
           <circle
             v-for="(ponto, index) in pontosGrafico.split(' ')"
@@ -544,7 +653,7 @@ onUnmounted(() => {
         <div
           class="grafico-meses"
           :style="{
-            gridTemplateColumns: `repeat(${grafico.length}, minmax(0, 1fr))`
+            gridTemplateColumns: `repeat(${grafico.length}, minmax(0, 1fr))`,
           }"
         >
           <span v-for="(item, index) in grafico" :key="index">
@@ -569,7 +678,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- PRODUTOS MAIS VENDIDOS -->
     <section class="painel-produtos">
       <div class="secao-bloco-cabecalho">
         <div>
@@ -578,24 +686,15 @@ onUnmounted(() => {
           <p>Os produtos com maior quantidade de vendas.</p>
         </div>
 
-        <button
-          type="button"
-          class="link-encomendas"
-          @click="navegar('/admin/produtos')"
-        >
+        <button type="button" class="link-encomendas" @click="navegar('/admin/produtos')">
           Ver catálogo
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div v-if="carregando" class="estado-lista">
-        Carregando produtos...
-      </div>
+      <div v-if="carregando" class="estado-lista">Carregando produtos...</div>
 
-      <div
-        v-else-if="!produtosMaisVendidos.length"
-        class="estado-lista"
-      >
+      <div v-else-if="!produtosMaisVendidos.length" class="estado-lista">
         <i class="fa-solid fa-basket-shopping"></i>
         <strong>Nenhum produto em destaque.</strong>
         <span>Os produtos mais vendidos aparecerão aqui.</span>
@@ -614,7 +713,7 @@ onUnmounted(() => {
           <div class="ranking-info">
             <div class="ranking-titulo">
               <strong>{{ produto.nome || "Produto" }}</strong>
-              <span>{{ formatarQuantidade(produto.quantidade) }} vendidos</span>
+              <span> {{ formatarQuantidade(produto.quantidade) }} vendidos </span>
             </div>
 
             <div class="ranking-barra">
@@ -622,9 +721,8 @@ onUnmounted(() => {
                 :style="{
                   width: `${Math.min(
                     100,
-                    Number(produto.quantidade || 0) /
-                    maiorVendaProduto * 100
-                  )}%`
+                    (Number(produto.quantidade || 0) / maiorVendaProduto) * 100,
+                  )}%`,
                 }"
               ></span>
             </div>
@@ -633,7 +731,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- ALERTAS -->
     <section class="painel-alertas">
       <div class="secao-bloco-cabecalho">
         <div>
@@ -642,14 +739,10 @@ onUnmounted(() => {
           <p>Pontos que podem precisar da sua atenção.</p>
         </div>
 
-        <span class="alertas-contagem">
-          {{ alertas.length }} avisos
-        </span>
+        <span class="alertas-contagem"> {{ alertas.length }} avisos </span>
       </div>
 
-      <div v-if="carregando" class="estado-lista">
-        Verificando avisos...
-      </div>
+      <div v-if="carregando" class="estado-lista">Verificando avisos...</div>
 
       <div v-else-if="!alertas.length" class="alerta-vazio">
         <span class="alerta-vazio-icone">
@@ -669,11 +762,7 @@ onUnmounted(() => {
           :class="`alerta-${alerta.tipo || 'info'}`"
         >
           <span class="alerta-icone">
-            <i
-              :class="alerta.icone
-                ? `fa-solid ${alerta.icone}`
-                : 'fa-solid fa-circle-info'"
-            ></i>
+            <i :class="alerta.icone ? `fa-solid ${alerta.icone}` : 'fa-solid fa-circle-info'"></i>
           </span>
 
           <div>
@@ -681,11 +770,7 @@ onUnmounted(() => {
             <p>{{ alerta.mensagem || "" }}</p>
           </div>
 
-          <button
-            v-if="alerta.rota"
-            type="button"
-            @click="navegar(alerta.rota)"
-          >
+          <button v-if="alerta.rota" type="button" @click="navegar(alerta.rota)">
             Ver
             <i class="fa-solid fa-arrow-right"></i>
           </button>
@@ -693,7 +778,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- ÚLTIMAS ENCOMENDAS -->
     <section class="ultimas-section">
       <div class="ultimas-cabecalho">
         <div>
@@ -702,50 +786,32 @@ onUnmounted(() => {
           <p>Os pedidos mais recentes registrados.</p>
         </div>
 
-        <button
-          type="button"
-          class="link-encomendas"
-          @click="navegar('/admin/encomendas')"
-        >
+        <button type="button" class="link-encomendas" @click="navegar('/admin/encomendas')">
           Ver todas
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div v-if="carregando" class="estado-lista">
-        Carregando encomendas...
-      </div>
+      <div v-if="carregando" class="estado-lista">Carregando encomendas...</div>
 
-      <div
-        v-else-if="!ultimasEncomendas.length"
-        class="estado-lista"
-      >
+      <div v-else-if="!ultimasEncomendas.length" class="estado-lista">
         <i class="fa-regular fa-clipboard"></i>
         <strong>Nenhuma encomenda registrada ainda.</strong>
-        <span>Quando uma compra for realizada, ela aparecerá aqui.</span>
+        <span> Quando uma encomenda for realizada, ela aparecerá aqui. </span>
       </div>
 
       <div v-else class="tabela-encomendas">
-        <div
-          v-for="compra in ultimasEncomendas"
-          :key="compra.id"
-          class="encomenda-linha"
-        >
+        <div v-for="compra in ultimasEncomendas" :key="compra.id" class="encomenda-linha">
           <div class="encomenda-icone">
             <i class="fa-solid fa-receipt"></i>
           </div>
 
           <div class="encomenda-cliente">
             <strong>{{ compra.cliente || "Cliente" }}</strong>
-            <small>
-              Pedido #{{ compra.id }} · {{ formatarData(compra.data) }}
-            </small>
+            <small> Pedido #{{ compra.id }} · {{ formatarData(compra.data) }} </small>
           </div>
 
-          <span
-            class="status-encomenda"
-            :class="`status-${normalizarStatus(compra.status)}`"
-          >
+          <span class="status-encomenda" :class="`status-${normalizarStatusVisual(compra.status)}`">
             {{ compra.status || "Em andamento" }}
           </span>
 
@@ -760,7 +826,6 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- RODAPÉ -->
     <footer class="dashboard-footer">
       <span></span>
 
@@ -773,13 +838,14 @@ onUnmounted(() => {
 
       <small v-if="ultimaAtualizacao">
         Atualizado às
-        {{ ultimaAtualizacao.toLocaleTimeString("pt-BR", {
-          hour: "2-digit",
-          minute: "2-digit"
-        }) }}
+        {{
+          ultimaAtualizacao.toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        }}
       </small>
     </footer>
-
   </main>
 </template>
 
@@ -817,25 +883,25 @@ onUnmounted(() => {
   overflow: hidden;
   border-radius: 26px;
   background:
-    radial-gradient(circle at 82% 35%, rgba(205,177,126,.18), transparent 27%),
+    radial-gradient(circle at 82% 35%, rgba(205, 177, 126, 0.18), transparent 27%),
     linear-gradient(118deg, #38251c, #543426 57%, #70482f);
   color: #fffaf3;
-  box-shadow: 0 22px 55px rgba(65,39,25,.12);
+  box-shadow: 0 22px 55px rgba(65, 39, 25, 0.12);
 }
 
 .hero-textura {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background-image: radial-gradient(rgba(255,245,225,.5) .7px, transparent .7px);
+  background-image: radial-gradient(rgba(255, 245, 225, 0.5) 0.7px, transparent 0.7px);
   background-size: 15px 15px;
-  opacity: .1;
+  opacity: 0.1;
 }
 
 .hero-circulo {
   position: absolute;
   z-index: -1;
-  border: 1px solid rgba(230,204,159,.11);
+  border: 1px solid rgba(230, 204, 159, 0.11);
   border-radius: 50%;
 }
 
@@ -873,11 +939,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 9px;
   padding: 9px 12px;
-  border: 1px solid rgba(231,211,177,.2);
+  border: 1px solid rgba(231, 211, 177, 0.2);
   border-radius: 50px;
-  background: rgba(255,255,255,.055);
+  background: rgba(255, 255, 255, 0.055);
   color: #e4c998;
-  font-size: .62rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 1.4px;
 }
@@ -892,7 +958,7 @@ onUnmounted(() => {
 .saudacao {
   margin: 22px 0 10px;
   color: #ddc7a8;
-  font-size: .86rem;
+  font-size: 0.86rem;
 }
 
 .hero-esquerda h1 {
@@ -913,8 +979,8 @@ onUnmounted(() => {
 .hero-descricao {
   max-width: 480px;
   margin: 16px 0 12px;
-  color: rgba(255,250,243,.7);
-  font-size: .84rem;
+  color: rgba(255, 250, 243, 0.7);
+  font-size: 0.84rem;
   line-height: 1.75;
 }
 
@@ -924,7 +990,7 @@ onUnmounted(() => {
   gap: 8px;
   margin-bottom: 19px;
   color: #dfc9aa;
-  font-size: .7rem;
+  font-size: 0.7rem;
   text-transform: capitalize;
 }
 
@@ -938,10 +1004,10 @@ onUnmounted(() => {
   border-radius: 13px;
   background: #e1c98f;
   color: #442c1e;
-  font-size: .76rem;
+  font-size: 0.76rem;
   font-weight: 800;
   cursor: pointer;
-  transition: .25s ease;
+  transition: 0.25s ease;
 }
 
 .hero-botao:hover {
@@ -962,7 +1028,7 @@ onUnmounted(() => {
 
 .selo-circular {
   position: absolute;
-  border: 1px solid rgba(225,201,143,.18);
+  border: 1px solid rgba(225, 201, 143, 0.18);
   border-radius: 50%;
 }
 
@@ -980,9 +1046,9 @@ onUnmounted(() => {
 .selo-interno {
   width: 165px;
   height: 165px;
-  border: 8px solid rgba(225,201,143,.15);
+  border: 8px solid rgba(225, 201, 143, 0.15);
   background: linear-gradient(145deg, #d4aa70, #986943);
-  box-shadow: 0 20px 40px rgba(25,14,8,.18);
+  box-shadow: 0 20px 40px rgba(25, 14, 8, 0.18);
 }
 
 .simbolo-padaria {
@@ -1022,7 +1088,7 @@ onUnmounted(() => {
   gap: 10px;
   padding: 11px 13px;
   border-radius: 15px;
-  background: rgba(45,28,19,.85);
+  background: rgba(45, 28, 19, 0.85);
 }
 
 .etiqueta-icone {
@@ -1031,7 +1097,7 @@ onUnmounted(() => {
   height: 32px;
   place-items: center;
   border-radius: 10px;
-  background: rgba(225,201,143,.16);
+  background: rgba(225, 201, 143, 0.16);
   color: #e1c98f;
 }
 
@@ -1041,12 +1107,12 @@ onUnmounted(() => {
 }
 
 .etiqueta-artesanal strong {
-  font-size: .66rem;
+  font-size: 0.66rem;
 }
 
 .etiqueta-artesanal small {
-  color: rgba(255,250,243,.6);
-  font-size: .58rem;
+  color: rgba(255, 250, 243, 0.6);
+  font-size: 0.58rem;
 }
 
 /* CABEÇALHOS */
@@ -1069,7 +1135,7 @@ onUnmounted(() => {
 .eyebrow {
   display: block;
   color: #b89764;
-  font-size: .62rem;
+  font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 1.7px;
 }
@@ -1091,7 +1157,7 @@ onUnmounted(() => {
 .secao-bloco-cabecalho p {
   margin: 0;
   color: #988777;
-  font-size: .8rem;
+  font-size: 0.8rem;
 }
 
 .btn-atualizar {
@@ -1103,10 +1169,10 @@ onUnmounted(() => {
   border-radius: 12px;
   background: #fff;
   color: #805e3e;
-  font-size: .7rem;
+  font-size: 0.7rem;
   font-weight: 800;
   cursor: pointer;
-  transition: .2s ease;
+  transition: 0.2s ease;
 }
 
 .btn-atualizar:hover {
@@ -1115,7 +1181,7 @@ onUnmounted(() => {
 }
 
 .btn-atualizar:disabled {
-  opacity: .6;
+  opacity: 0.6;
   cursor: wait;
 }
 
@@ -1124,7 +1190,9 @@ onUnmounted(() => {
 }
 
 @keyframes girar {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ERRO */
@@ -1139,7 +1207,7 @@ onUnmounted(() => {
   border-radius: 13px;
   background: #fff5f1;
   color: #944a3c;
-  font-size: .75rem;
+  font-size: 0.75rem;
 }
 
 .erro-dashboard button {
@@ -1167,18 +1235,18 @@ onUnmounted(() => {
   padding: 20px;
   border: 1px solid #eee4d8;
   border-radius: 20px;
-  background: rgba(255,255,255,.88);
+  background: rgba(255, 255, 255, 0.88);
   color: var(--texto);
   text-align: left;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(65,43,28,.035);
-  transition: .25s ease;
+  box-shadow: 0 8px 24px rgba(65, 43, 28, 0.035);
+  transition: 0.25s ease;
 }
 
 .metrica:hover {
   transform: translateY(-4px);
   border-color: #ddc9ad;
-  box-shadow: 0 16px 35px rgba(65,43,28,.08);
+  box-shadow: 0 16px 35px rgba(65, 43, 28, 0.08);
 }
 
 .metrica-topo {
@@ -1213,7 +1281,7 @@ onUnmounted(() => {
 
 .metrica-detalhe {
   color: #c1ad94;
-  font-size: .55rem;
+  font-size: 0.55rem;
   font-weight: 900;
   letter-spacing: 1px;
 }
@@ -1241,7 +1309,7 @@ onUnmounted(() => {
 .metrica-conteudo p {
   margin: 0;
   color: #998979;
-  font-size: .68rem;
+  font-size: 0.68rem;
 }
 
 .valor-carregando {
@@ -1254,7 +1322,9 @@ onUnmounted(() => {
 }
 
 @keyframes pulsar {
-  to { opacity: .45; }
+  to {
+    opacity: 0.45;
+  }
 }
 
 .metrica-rodape {
@@ -1264,59 +1334,8 @@ onUnmounted(() => {
   padding-top: 12px;
   border-top: 1px solid #f1e9df;
   color: #9d8261;
-  font-size: .64rem;
+  font-size: 0.64rem;
   font-weight: 700;
-}
-
-/* RESUMO FINANCEIRO */
-
-.resumo-financeiro {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 17px;
-  padding: 19px 22px;
-  border: 1px solid #eadfce;
-  border-radius: 17px;
-  background: linear-gradient(110deg, #fffaf2, #fff);
-}
-
-.resumo-financeiro-icone {
-  display: grid;
-  width: 45px;
-  height: 45px;
-  flex-shrink: 0;
-  place-items: center;
-  border-radius: 14px;
-  background: #f3eadb;
-  color: #a9824e;
-}
-
-.resumo-financeiro-texto {
-  display: grid;
-  gap: 5px;
-}
-
-.resumo-financeiro-texto > span:first-child {
-  color: #a18f7d;
-  font-size: .58rem;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
-
-.resumo-financeiro-texto strong {
-  color: #5e3023;
-  font-family: "Playfair Display", Georgia, serif;
-  font-size: 1.35rem;
-}
-
-.resumo-financeiro-info {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-left: auto;
-  color: #a18f7d;
-  font-size: .65rem;
 }
 
 /* PAINÉIS */
@@ -1329,8 +1348,8 @@ onUnmounted(() => {
   padding: 25px;
   border: 1px solid #eee4d8;
   border-radius: 23px;
-  background: rgba(255,255,255,.84);
-  box-shadow: 0 10px 32px rgba(65,43,28,.035);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 10px 32px rgba(65, 43, 28, 0.035);
 }
 
 /* GRÁFICO */
@@ -1350,7 +1369,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 7px;
   color: #8d7965;
-  font-size: .68rem;
+  font-size: 0.68rem;
 }
 
 .grafico-legenda i {
@@ -1378,7 +1397,7 @@ onUnmounted(() => {
 }
 
 .grafico-preenchimento {
-  fill: rgba(184,151,100,.15);
+  fill: rgba(184, 151, 100, 0.15);
 }
 
 .grafico-linha {
@@ -1401,7 +1420,7 @@ onUnmounted(() => {
   margin-top: 8px;
   color: #9a8877;
   text-align: center;
-  font-size: .65rem;
+  font-size: 0.65rem;
 }
 
 .grafico-resumo {
@@ -1420,7 +1439,7 @@ onUnmounted(() => {
 
 .grafico-resumo span {
   color: #a18f7d;
-  font-size: .63rem;
+  font-size: 0.63rem;
 }
 
 .grafico-resumo strong {
@@ -1440,7 +1459,7 @@ onUnmounted(() => {
   gap: 9px;
   color: #9a8877;
   text-align: center;
-  font-size: .78rem;
+  font-size: 0.78rem;
 }
 
 .grafico-vazio > i,
@@ -1480,7 +1499,7 @@ onUnmounted(() => {
   background: #f5ecdf;
   color: #987348;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: .9rem;
+  font-size: 0.9rem;
 }
 
 .ranking-info {
@@ -1498,7 +1517,7 @@ onUnmounted(() => {
 .ranking-titulo strong {
   overflow: hidden;
   color: #5e4231;
-  font-size: .75rem;
+  font-size: 0.75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1506,7 +1525,7 @@ onUnmounted(() => {
 .ranking-titulo span {
   flex-shrink: 0;
   color: #a18f7d;
-  font-size: .66rem;
+  font-size: 0.66rem;
 }
 
 .ranking-barra {
@@ -1521,7 +1540,7 @@ onUnmounted(() => {
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #b89764, #d7bd8b);
-  transition: width .4s ease;
+  transition: width 0.4s ease;
 }
 
 /* ALERTAS */
@@ -1531,7 +1550,7 @@ onUnmounted(() => {
   border-radius: 30px;
   background: #f5ecdf;
   color: #987348;
-  font-size: .65rem;
+  font-size: 0.65rem;
   font-weight: 800;
 }
 
@@ -1563,12 +1582,12 @@ onUnmounted(() => {
 
 .alerta-vazio strong {
   color: #526548;
-  font-size: .76rem;
+  font-size: 0.76rem;
 }
 
 .alerta-vazio div span {
   color: #8d9b83;
-  font-size: .68rem;
+  font-size: 0.68rem;
 }
 
 .lista-alertas {
@@ -1605,13 +1624,13 @@ onUnmounted(() => {
 
 .alerta-item strong {
   color: #624735;
-  font-size: .74rem;
+  font-size: 0.74rem;
 }
 
 .alerta-item p {
   margin: 4px 0 0;
   color: #9a8877;
-  font-size: .67rem;
+  font-size: 0.67rem;
 }
 
 .alerta-item button {
@@ -1621,7 +1640,7 @@ onUnmounted(() => {
   border: 0;
   background: transparent;
   color: #987348;
-  font-size: .67rem;
+  font-size: 0.67rem;
   font-weight: 800;
   cursor: pointer;
 }
@@ -1658,10 +1677,10 @@ onUnmounted(() => {
   border: 0;
   background: transparent;
   color: #8a6746;
-  font-size: .7rem;
+  font-size: 0.7rem;
   font-weight: 800;
   cursor: pointer;
-  transition: .2s ease;
+  transition: 0.2s ease;
 }
 
 .link-encomendas:hover {
@@ -1702,33 +1721,33 @@ onUnmounted(() => {
 .encomenda-cliente strong {
   overflow: hidden;
   color: #53392a;
-  font-size: .76rem;
+  font-size: 0.76rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .encomenda-cliente small {
   color: #9d8c7b;
-  font-size: .62rem;
+  font-size: 0.62rem;
 }
 
 .encomenda-pagamento {
   color: #9a8877;
-  font-size: .65rem;
+  font-size: 0.65rem;
   text-transform: capitalize;
 }
 
 .encomenda-total {
   color: #5e3023;
   font-family: "Playfair Display", Georgia, serif;
-  font-size: .95rem;
+  font-size: 0.95rem;
   white-space: nowrap;
 }
 
 .status-encomenda {
   padding: 6px 9px;
   border-radius: 30px;
-  font-size: .58rem;
+  font-size: 0.58rem;
   font-weight: 800;
   text-transform: capitalize;
   white-space: nowrap;
@@ -1775,7 +1794,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: .53rem;
+  font-size: 0.53rem;
   font-weight: 900;
   letter-spacing: 1.5px;
 }
@@ -1786,13 +1805,13 @@ onUnmounted(() => {
 
 .dashboard-footer small {
   color: #ad9a85;
-  font-size: .58rem;
+  font-size: 0.58rem;
 }
 
 /* ACESSIBILIDADE */
 
 .dashboard button:focus-visible {
-  outline: 3px solid rgba(184,151,100,.65);
+  outline: 3px solid rgba(184, 151, 100, 0.65);
   outline-offset: 3px;
 }
 
@@ -1804,7 +1823,7 @@ onUnmounted(() => {
   }
 
   .hero-direita {
-    transform: scale(.85);
+    transform: scale(0.85);
     margin-right: -20px;
   }
 }
@@ -1854,10 +1873,6 @@ onUnmounted(() => {
   .ultimas-section {
     padding: 19px 15px;
   }
-
-  .resumo-financeiro-info {
-    display: none;
-  }
 }
 
 @media (max-width: 480px) {
@@ -1870,7 +1885,7 @@ onUnmounted(() => {
   }
 
   .hero-descricao {
-    font-size: .74rem;
+    font-size: 0.74rem;
   }
 
   .hero-botao {
@@ -1898,7 +1913,7 @@ onUnmounted(() => {
   }
 
   .btn-atualizar i {
-    font-size: .8rem;
+    font-size: 0.8rem;
   }
 
   .metricas {
@@ -1914,7 +1929,7 @@ onUnmounted(() => {
   }
 
   .grafico-meses {
-    font-size: .56rem;
+    font-size: 0.56rem;
   }
 
   .grafico-resumo {
@@ -1926,7 +1941,7 @@ onUnmounted(() => {
   }
 
   .ranking-titulo span {
-    font-size: .59rem;
+    font-size: 0.59rem;
   }
 
   .encomenda-linha {
@@ -1948,7 +1963,7 @@ onUnmounted(() => {
 
   .encomenda-total {
     margin-left: auto;
-    font-size: .82rem;
+    font-size: 0.82rem;
   }
 
   .alerta-item {
@@ -1978,7 +1993,25 @@ onUnmounted(() => {
   .dashboard *::before,
   .dashboard *::after {
     animation: none !important;
-    transition-duration: .01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1000px) {
+  .metricas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .metricas {
+    grid-template-columns: 1fr;
   }
 }
 </style>
