@@ -30,23 +30,21 @@ const categorias = [
 ];
 
 // =========================================================
-// CONVERSÃO DE NOTA
+// CONVERSÃO DE NÚMEROS
 // =========================================================
 
-const converterNota = (valor) => {
+const converterNumero = (valor) => {
   if (valor === null || valor === undefined || valor === "") {
     return 0;
   }
 
-  const nota = Number(
-    String(valor).replace(",", ".")
-  );
+  const numero = Number(String(valor).replace(",", "."));
 
-  return Number.isFinite(nota) ? nota : 0;
+  return Number.isFinite(numero) ? numero : 0;
 };
 
 // =========================================================
-// PRODUTOS DESTAQUES
+// PRODUTOS MAIS VENDIDOS
 // =========================================================
 
 const produtosDestaques = computed(() => {
@@ -56,7 +54,19 @@ const produtosDestaques = computed(() => {
 
   return produtos.value
     .map((produto) => {
-      const nota = converterNota(
+      const quantidadeComprada = converterNumero(
+        produto.quantidade_vendida ??
+        produto.total_vendido ??
+        produto.quantidade_comprada ??
+        produto.total_compras ??
+        produto.numero_vendas ??
+        produto.vendas ??
+        produto.quantidade_vendas ??
+        produto.compras ??
+        0
+      );
+
+      const nota = converterNumero(
         produto.avaliacao ??
         produto.media_avaliacoes ??
         produto.media_avaliacao ??
@@ -64,7 +74,7 @@ const produtosDestaques = computed(() => {
         0
       );
 
-      const quantidade = Number(
+      const quantidadeAvaliacoes = converterNumero(
         produto.quantidade_avaliacoes ??
         produto.total_avaliacoes ??
         produto.numero_avaliacoes ??
@@ -73,28 +83,30 @@ const produtosDestaques = computed(() => {
 
       return {
         ...produto,
+        quantidadeComprada,
         notaOrdenacao: nota,
-        quantidadeAvaliacoes: Number.isFinite(quantidade)
-          ? quantidade
-          : 0,
+        quantidadeAvaliacoes,
       };
     })
-    .filter((produto) => {
-      return (
-        produto.notaOrdenacao > 0 &&
-        produto.notaOrdenacao <= 5
-      );
-    })
+
+    // Não mostrar produtos sem compras
+    .filter((produto) => produto.quantidadeComprada > 0)
+
+    // Mais vendidos primeiro
     .sort((a, b) => {
+      if (b.quantidadeComprada !== a.quantidadeComprada) {
+        return b.quantidadeComprada - a.quantidadeComprada;
+      }
+
+      // Desempate pela avaliação
       if (b.notaOrdenacao !== a.notaOrdenacao) {
         return b.notaOrdenacao - a.notaOrdenacao;
       }
 
-      return (
-        b.quantidadeAvaliacoes -
-        a.quantidadeAvaliacoes
-      );
+      return b.quantidadeAvaliacoes - a.quantidadeAvaliacoes;
     })
+
+    // Exibir no máximo 7 produtos
     .slice(0, 7);
 });
 
@@ -255,7 +267,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- DESTAQUES -->
+    <!-- MAIS VENDIDOS -->
 
     <section class="destaques">
       <div class="secao-topo">
@@ -264,7 +276,7 @@ onMounted(async () => {
             OS MAIS QUERIDINHOS
           </span>
 
-          <h2>Nossos destaques</h2>
+          <h2>Nossos mais vendidos</h2>
         </div>
 
         <button
@@ -292,6 +304,7 @@ onMounted(async () => {
           :autoplay="{
             delay: 3500,
             disableOnInteraction: false,
+            pauseOnMouseEnter: true,
           }"
           :breakpoints="{
             360: {
@@ -326,7 +339,7 @@ onMounted(async () => {
         v-else
         class="sem-produtos"
       >
-        Ainda não temos produtos avaliados.
+        Ainda não temos produtos com compras registradas.
         Confira nosso cardápio!
       </p>
     </section>

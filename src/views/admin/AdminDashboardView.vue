@@ -16,6 +16,7 @@ const adminUsername = ref(
 const carregando = ref(true);
 const erro = ref("");
 const ultimaAtualizacao = ref(null);
+const atualizando = ref(false);
 
 const resumo = ref({
   produtos: 0,
@@ -238,6 +239,7 @@ const formatarData = (data) => {
 
 const formatarQuantidade = (valor) => {
   if (valor === null || valor === undefined) return "—";
+
   return Number(valor || 0).toLocaleString("pt-BR");
 };
 
@@ -323,35 +325,57 @@ const normalizarLista = (dados) => {
   return [];
 };
 
+// =====================================================
+// NORMALIZAÇÃO DOS PRODUTOS MAIS VENDIDOS
+// =====================================================
+
 const normalizarProdutosMaisVendidos = (lista) => {
   if (!Array.isArray(lista)) return [];
 
   return lista
     .map((produto) => ({
       ...produto,
-      id: produto.id ?? produto.produto_id ?? produto.id_produto,
+
+      id:
+        produto.id ??
+        produto.idProduto ??
+        produto.produto_id ??
+        produto.id_produto,
+
       nome:
         produto.nome ??
         produto.produto_nome ??
         produto.titulo ??
         produto.nome_produto ??
         "Produto",
+
       quantidade: Number(
         produto.quantidade ??
-          produto.total_vendido ??
           produto.quantidade_vendida ??
+          produto.total_vendido ??
           produto.vendas ??
           produto.total ??
+          0
+      ),
+
+      faturamento: Number(
+        produto.faturamento ??
+          produto.total_faturado ??
           0
       ),
     }))
     .filter(
       (produto) =>
-        Number.isFinite(produto.quantidade) && produto.quantidade > 0
+        Number.isFinite(produto.quantidade) &&
+        produto.quantidade > 0
     )
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5);
 };
+
+// =====================================================
+// RESUMO DAS COMPRAS
+// =====================================================
 
 const carregarResumoCompras = async () => {
   const resposta = await fetch(`${API_URL}/compras/admin/`, {
@@ -401,7 +425,14 @@ const carregarResumoCompras = async () => {
   ).length;
 };
 
+// =====================================================
+// CARREGAR DASHBOARD
+// =====================================================
+
 const carregarDashboard = async () => {
+  if (atualizando.value) return;
+
+  atualizando.value = true;
   carregando.value = true;
   erro.value = "";
 
@@ -422,59 +453,76 @@ const carregarDashboard = async () => {
       throw new Error("SESSAO_EXPIRADA");
     }
 
+    const dados = await resposta.json().catch(() => ({}));
+
     if (!resposta.ok) {
       throw new Error(
-        "Não foi possível carregar os dados do dashboard."
+        dados.detail ||
+          dados.erro ||
+          "Não foi possível carregar os dados do dashboard."
       );
     }
 
-    const dados = await resposta.json();
-
+    // RESUMO
     resumo.value = {
       ...resumo.value,
       ...(dados.resumo || {}),
     };
 
-    // O endpoint principal já retorna a quantidade total de cupons.
     resumo.value.cupons =
       dados.resumo?.cupons !== undefined &&
       dados.resumo?.cupons !== null
         ? Number(dados.resumo.cupons)
         : 0;
 
-    // Carrega os dados complementares das compras.
+    // COMPRAS
     await carregarResumoCompras();
 
+    // GRÁFICO
     grafico.value = Array.isArray(dados.grafico)
-      ? dados.grafico
+      ? dados.grafico.map((item) => ({
+          ...item,
+          encomendas: Number(item.encomendas || 0),
+          faturamento: Number(item.faturamento || 0),
+        }))
       : [];
 
+    // ÚLTIMAS ENCOMENDAS
     ultimasEncomendas.value = normalizarLista(
       dados.ultimas_encomendas
     ).map((compra) => ({
       ...compra,
-      id: compra.id ?? compra.idCompra ?? compra.id_compra,
+
+      id:
+        compra.id ??
+        compra.idCompra ??
+        compra.id_compra,
+
       cliente:
         compra.cliente ??
         compra.nome_cliente ??
         compra.nome ??
         "Cliente",
+
       data:
         compra.data ??
         compra.criado_em ??
         compra.data_compra ??
         compra.created_at,
+
       pagamento:
         compra.pagamento ??
         compra.forma_pagamento ??
         compra.formaPagamento ??
         "Não informado",
+
       total: Number(
         compra.total ??
           compra.valor_total ??
           compra.total_compra ??
           0
       ),
+
       status:
         compra.status ??
         compra.status_encomenda ??
@@ -482,15 +530,21 @@ const carregarDashboard = async () => {
         "Em andamento",
     }));
 
+    // PRODUTOS MAIS VENDIDOS
+    // O backend deve enviar a chave "mais_vendidos".
     produtosMaisVendidos.value = normalizarProdutosMaisVendidos(
-      dados.produtos_mais_vendidos
+      dados.mais_vendidos ??
+      dados.produtos_mais_vendidos ??
+      []
     );
 
+    // ALERTAS
     alertas.value = Array.isArray(dados.alertas)
       ? dados.alertas
       : [];
 
     ultimaAtualizacao.value = new Date();
+
   } catch (error) {
     if (error.message === "SESSAO_EXPIRADA") {
       localStorage.removeItem("adminToken");
@@ -503,10 +557,16 @@ const carregarDashboard = async () => {
 
     erro.value =
       error.message || "Erro ao conectar com o servidor.";
+
   } finally {
     carregando.value = false;
+    atualizando.value = false;
   }
 };
+
+// =====================================================
+// ATUALIZAÇÃO AUTOMÁTICA
+// =====================================================
 
 const iniciarAtualizacaoAutomatica = () => {
   intervaloAtualizacao = window.setInterval(() => {
@@ -530,6 +590,8 @@ onUnmounted(() => {
 
 <template>
   <main class="dashboard">
+
+    <!-- HERO -->
     <section class="hero-admin">
       <div class="hero-textura"></div>
       <div class="hero-circulo hero-circulo-1"></div>
@@ -593,6 +655,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- VISÃO GERAL -->
     <section class="secao-visao">
       <div class="secao-cabecalho">
         <div>
@@ -670,6 +733,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- GRÁFICO -->
     <section class="painel-grafico">
       <div class="grafico-cabecalho">
         <div>
@@ -761,6 +825,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- PRODUTOS MAIS VENDIDOS -->
     <section class="painel-produtos">
       <div class="secao-bloco-cabecalho">
         <div>
@@ -789,7 +854,9 @@ onUnmounted(() => {
       >
         <i class="fa-solid fa-basket-shopping"></i>
         <strong>Nenhum produto em destaque.</strong>
-        <span>Os produtos mais vendidos aparecerão aqui.</span>
+        <span>
+          Os produtos aparecerão aqui quando houver vendas confirmadas.
+        </span>
       </div>
 
       <div v-else class="ranking-produtos">
@@ -805,7 +872,9 @@ onUnmounted(() => {
           <div class="ranking-info">
             <div class="ranking-titulo">
               <strong>{{ produto.nome || "Produto" }}</strong>
-              <span>{{ formatarQuantidade(produto.quantidade) }} vendidos</span>
+              <span>
+                {{ formatarQuantidade(produto.quantidade) }} vendidos
+              </span>
             </div>
 
             <div class="ranking-barra">
@@ -825,6 +894,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- ALERTAS -->
     <section class="painel-alertas">
       <div class="secao-bloco-cabecalho">
         <div>
@@ -886,6 +956,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- ÚLTIMAS ENCOMENDAS -->
     <section class="ultimas-section">
       <div class="ultimas-cabecalho">
         <div>
@@ -914,7 +985,9 @@ onUnmounted(() => {
       >
         <i class="fa-regular fa-clipboard"></i>
         <strong>Nenhuma encomenda registrada ainda.</strong>
-        <span>Quando uma encomenda for realizada, ela aparecerá aqui.</span>
+        <span>
+          Quando uma encomenda for realizada, ela aparecerá aqui.
+        </span>
       </div>
 
       <div v-else class="tabela-encomendas">
@@ -952,6 +1025,7 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- RODAPÉ -->
     <footer class="dashboard-footer">
       <span></span>
 
@@ -972,6 +1046,7 @@ onUnmounted(() => {
         }}
       </small>
     </footer>
+
   </main>
 </template>
 
