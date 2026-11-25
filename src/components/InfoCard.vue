@@ -1,10 +1,12 @@
+
 <script setup>
 import { ref, onMounted } from "vue";
 import defaultAvatar from "@/assets/perfil/default-avatar.png";
 import "@/assets/css/profileCard.css";
 
-const API_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+).replace(/\/+$/, "");
 
 const usuario = ref({
   username: "Carregando...",
@@ -15,6 +17,29 @@ const usuario = ref({
 const contaAberta = ref(false);
 const fileInput = ref(null);
 const carregandoFoto = ref(false);
+const erroFoto = ref("");
+
+const tokenUsuario = () => localStorage.getItem("token");
+
+const obterHeaders = () => ({
+  Authorization: `Bearer ${tokenUsuario()}`,
+});
+
+const normalizarFoto = (foto) => {
+  if (!foto || typeof foto !== "string") return null;
+
+  const url = foto.trim();
+
+  if (!url || url === "None" || url === "null") return null;
+
+  // URL absoluta do Cloudinary ou outro servidor
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+
+  // Caminho relativo
+  return `${API_URL}/${url.replace(/^\/+/, "")}`;
+};
 
 const handleImageError = (event) => {
   event.target.onerror = null;
@@ -32,18 +57,18 @@ const alternarConta = () => {
 };
 
 const carregarPerfil = async () => {
-  const token = localStorage.getItem("token");
+  const token = tokenUsuario();
 
   if (!token) return;
 
   try {
     const response = await fetch(`${API_URL}/perfil/`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      method: "GET",
+      headers: obterHeaders(),
+      cache: "no-store",
     });
 
-    const dados = await response.json();
+    const dados = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       console.error("Erro ao carregar perfil:", dados);
@@ -53,7 +78,7 @@ const carregarPerfil = async () => {
     usuario.value = {
       username: dados.username || "",
       email: dados.email || "",
-      foto_perfil: dados.foto_perfil || null,
+      foto_perfil: normalizarFoto(dados.foto_perfil),
     };
   } catch (error) {
     console.error("Erro ao buscar perfil:", error);
@@ -65,47 +90,84 @@ const atualizarFoto = async (event) => {
 
   if (!arquivo || carregandoFoto.value) return;
 
-  const token = localStorage.getItem("token");
+  const token = tokenUsuario();
 
-  if (!token) return;
+  if (!token) {
+    erroFoto.value = "Faça login novamente para alterar sua foto.";
+    event.target.value = "";
+    return;
+  }
+
+  if (!arquivo.type.startsWith("image/")) {
+    erroFoto.value = "Selecione um arquivo de imagem válido.";
+    event.target.value = "";
+    return;
+  }
+
+  const tamanhoMaximo = 5 * 1024 * 1024;
+
+  if (arquivo.size > tamanhoMaximo) {
+    erroFoto.value = "A imagem deve ter no máximo 5 MB.";
+    event.target.value = "";
+    return;
+  }
+
+  erroFoto.value = "";
+  carregandoFoto.value = true;
 
   const formData = new FormData();
   formData.append("foto_perfil", arquivo);
 
-  carregandoFoto.value = true;
-
   try {
     const response = await fetch(`${API_URL}/perfil/`, {
       method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: obterHeaders(),
       body: formData,
     });
 
-    const dados = await response.json();
+    const dados = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       console.error("Erro no upload:", dados);
+
+      const mensagem =
+        dados.foto_perfil?.[0] ||
+        dados.detail ||
+        dados.erro ||
+        "Não foi possível atualizar sua foto.";
+
+      erroFoto.value = mensagem;
+      return;
+    }
+
+    const novaFoto = normalizarFoto(dados.foto_perfil);
+
+    if (!novaFoto) {
+      console.error("A API não retornou uma URL de foto válida:", dados);
+      erroFoto.value =
+        "A foto foi enviada, mas o servidor não retornou o endereço da imagem.";
       return;
     }
 
     usuario.value = {
       username: dados.username || usuario.value.username,
       email: dados.email || usuario.value.email,
-      foto_perfil: dados.foto_perfil
-        ? `${dados.foto_perfil}${dados.foto_perfil.includes("?") ? "&" : "?"}t=${Date.now()}`
-        : null,
+      foto_perfil: `${novaFoto}${novaFoto.includes("?") ? "&" : "?"}t=${Date.now()}`,
     };
+
+    erroFoto.value = "";
   } catch (error) {
     console.error("Erro ao enviar imagem:", error);
+    erroFoto.value = "Erro de conexão ao atualizar a foto.";
   } finally {
     carregandoFoto.value = false;
     event.target.value = "";
   }
 };
 
-onMounted(carregarPerfil);
+onMounted(() => {
+  carregarPerfil();
+});
 </script>
 
 <template>
@@ -152,6 +214,14 @@ onMounted(carregarPerfil);
       <p class="email-principal">
         <i class="fas fa-envelope"></i>
         {{ usuario.email }}
+      </p>
+
+      <p v-if="erroFoto" class="erro-foto" role="alert">
+        {{ erroFoto }}
+      </p>
+
+      <p v-if="carregandoFoto" class="status-foto">
+        Atualizando sua foto...
       </p>
     </div>
 
@@ -231,3 +301,29 @@ onMounted(carregarPerfil);
     </div>
   </section>
 </template>
+
+<style scoped>
+.erro-foto {
+  margin-top: 10px;
+  color: #a34d3d;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.status-foto {
+  margin-top: 8px;
+  color: #987348;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.girando {
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
