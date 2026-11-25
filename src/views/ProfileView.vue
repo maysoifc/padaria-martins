@@ -36,6 +36,13 @@ const pedidos = [
 
 const carteira = [
   {
+    rota: "/pedidos/cupons",
+    icone: "fa-gift",
+    titulo: "Cupons Grátis",
+    descricao: "Seus prêmios para retirar na loja",
+    destaque: true
+  },
+  {
     rota: "/detalhes/carteira/cupons",
     icone: "fa-ticket-alt",
     titulo: "Meus Cupons",
@@ -129,6 +136,7 @@ const grupos = [
               :key="item.rota"
               type="button"
               class="menu-card"
+              :class="{ 'menu-card-gratis': item.destaque }"
               @click="navegarPara(item.rota)"
             >
               <div class="menu-icon">
@@ -139,6 +147,13 @@ const grupos = [
                 <strong>{{ item.titulo }}</strong>
                 <span>{{ item.descricao }}</span>
               </div>
+
+              <span
+                v-if="item.destaque"
+                class="menu-selo-gratis"
+              >
+                GRÁTIS
+              </span>
 
               <span class="card-arrow">
                 <i class="fas fa-arrow-right"></i>
@@ -177,3 +192,51 @@ const grupos = [
 </template>
 
 <style scoped src="@/assets/css/perfilView.css"></style>
+
+<style scoped>
+/* Destaque especial para os cupons gratuitos */
+.menu-card-gratis {
+  border: 1px solid rgba(184, 151, 100, 0.55);
+  background: linear-gradient(
+    120deg,
+    #fffaf1,
+    #f7eee2
+  );
+}
+
+.menu-card-gratis .menu-icon {
+  background: #e1c98f;
+  color: #5e3023;
+}
+
+.menu-card-gratis .menu-content strong {
+  color: #5e3023;
+}
+
+.menu-selo-gratis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  margin-left: auto;
+  border-radius: 20px;
+  background: #5e3023;
+  color: #fff8ed;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  white-space: nowrap;
+}
+
+.menu-card-gratis:hover {
+  border-color: #b89764;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 480px) {
+  .menu-selo-gratis {
+    font-size: 8px;
+    padding: 4px 6px;
+  }
+}
+</style>

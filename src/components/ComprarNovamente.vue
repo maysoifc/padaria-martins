@@ -29,23 +29,16 @@ const imagensLocais = import.meta.glob("../assets/img/*", {
   import: "default",
 });
 
-// Tenta encontrar a imagem em diferentes campos do produto
-const imagemProduto = computed(() => {
-  const imagem =
-    props.produto?.imagem_url ||
-    props.produto?.foto_url ||
-    props.produto?.imagem ||
-    props.produto?.foto ||
-    props.produto?.image ||
-    "";
-
+const normalizarImagem = (imagem) => {
   if (!imagem) return "";
 
   const valor = String(imagem).trim();
 
-  if (!valor) return "";
+  if (!valor || valor === "null" || valor === "undefined") {
+    return "";
+  }
 
-  // Procura primeiro entre as imagens locais
+  // Procura uma imagem local pelo nome do arquivo.
   const nomeArquivo = valor.split("/").pop()?.split("?")[0];
 
   const caminhoLocal = Object.keys(imagensLocais).find(
@@ -58,12 +51,11 @@ const imagemProduto = computed(() => {
     return imagensLocais[caminhoLocal];
   }
 
-  // URLs externas
+  // Imagens externas ou URLs completas.
   if (/^(https?:\/\/|data:|blob:)/i.test(valor)) {
     try {
       const url = new URL(valor);
 
-      // Substitui localhost pelo endereço real da API
       if (
         url.hostname === "localhost" ||
         url.hostname === "127.0.0.1"
@@ -77,24 +69,35 @@ const imagemProduto = computed(() => {
     }
   }
 
-  // Caminhos absolutos
+  // Caminho absoluto ou relativo da API.
   if (valor.startsWith("/")) {
     return `${API_ORIGIN}${valor}`;
   }
 
-  // Caminhos relativos
   return `${API_ORIGIN}/${valor.replace(/^\/+/, "")}`;
+};
+
+const imagemProduto = computed(() => {
+  const imagem =
+    props.produto?.imagem_url ||
+    props.produto?.foto_url ||
+    props.produto?.imagem ||
+    props.produto?.foto ||
+    props.produto?.image ||
+    props.produto?.image_url ||
+    props.produto?.foto_produto ||
+    "";
+
+  return normalizarImagem(imagem);
 });
 
-// Reinicia o estado quando muda o produto
 watch(
-  () => props.produto,
+  () => [props.produto, imagemProduto.value],
   () => {
     erroImagem.value = false;
   }
 );
 
-// Adiciona novamente ao carrinho
 const comprarNovamente = async () => {
   if (!props.produto || carregando.value) return;
 
@@ -164,16 +167,15 @@ const comprarNovamente = async () => {
       <img
         v-if="imagemProduto && !erroImagem"
         :src="imagemProduto"
-        :alt="produto.nome || 'Produto da padaria'"
+        :alt="produto.nome || 'Produto da Padaria Martins'"
         loading="lazy"
         @error="erroImagem = true"
       />
 
-      <!-- Imagem padrão quando não existir foto -->
       <div
         v-else
         class="imagem-placeholder-padaria"
-        aria-label="Imagem ilustrativa da Padaria Martins"
+        aria-label="Imagem padrão da Padaria Martins"
       >
         <div class="placeholder-detalhe">
           <i class="fa-solid fa-wheat-awn"></i>
@@ -192,11 +194,7 @@ const comprarNovamente = async () => {
 
     <span class="texto-botao">
       <strong>
-        {{
-          carregando
-            ? "Adicionando..."
-            : "Comprar novamente"
-        }}
+        {{ carregando ? "Adicionando..." : "Comprar novamente" }}
       </strong>
 
       <small>Adicionar ao carrinho</small>

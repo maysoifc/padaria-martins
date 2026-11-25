@@ -1,5 +1,6 @@
 
 import { createRouter, createWebHistory } from "vue-router";
+import CuponsGratisView from "@/views/CuponsGratisView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -141,6 +142,15 @@ const router = createRouter({
     },
 
     // =========================================
+    // CUPONS DO CLIENTE
+    // =========================================
+    {
+      path: "/pedidos/cupons",
+      name: "cupons-gratis",
+      component: CuponsGratisView,
+    },
+
+    // =========================================
     // LOGIN ADMINISTRATIVO
     // =========================================
     {
@@ -193,6 +203,12 @@ const router = createRouter({
           name: "AdminUsuarios",
           component: () =>
             import("../views/admin/AdminUsuariosView.vue"),
+        },
+        {
+          path: "cupons",
+          name: "AdminCupons",
+          component: () =>
+            import("../views/admin/AdminCuponsView.vue"),
         },
       ],
     },

@@ -1,15 +1,17 @@
+
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api").replace(
-  /\/+$/,
-  "",
-);
+const API_URL = (
+  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api"
+).replace(/\/+$/, "");
 
-const adminUsername = ref(localStorage.getItem("adminUsername") || "Administrador");
+const adminUsername = ref(
+  localStorage.getItem("adminUsername") || "Administrador"
+);
 
 const carregando = ref(true);
 const erro = ref("");
@@ -57,7 +59,10 @@ const dataAtual = computed(() => {
 });
 
 const maiorValorGrafico = computed(() => {
-  return Math.max(1, ...grafico.value.map((item) => Number(item.encomendas || 0)));
+  return Math.max(
+    1,
+    ...grafico.value.map((item) => Number(item.encomendas || 0))
+  );
 });
 
 const pontosGrafico = computed(() => {
@@ -79,7 +84,10 @@ const pontosGrafico = computed(() => {
           : (index * areaLargura) / (grafico.value.length - 1));
 
       const y =
-        altura - margemY - (Number(item.encomendas || 0) / maiorValorGrafico.value) * areaAltura;
+        altura -
+        margemY -
+        (Number(item.encomendas || 0) / maiorValorGrafico.value) *
+          areaAltura;
 
       return `${x},${y}`;
     })
@@ -97,15 +105,26 @@ const areaGrafico = computed(() => {
 });
 
 const totalEncomendasGrafico = computed(() => {
-  return grafico.value.reduce((total, item) => total + Number(item.encomendas || 0), 0);
+  return grafico.value.reduce(
+    (total, item) => total + Number(item.encomendas || 0),
+    0
+  );
 });
 
 const faturamentoGrafico = computed(() => {
-  return grafico.value.reduce((total, item) => total + Number(item.faturamento || 0), 0);
+  return grafico.value.reduce(
+    (total, item) => total + Number(item.faturamento || 0),
+    0
+  );
 });
 
 const maiorVendaProduto = computed(() => {
-  return Math.max(1, ...produtosMaisVendidos.value.map((item) => Number(item.quantidade || 0)));
+  return Math.max(
+    1,
+    ...produtosMaisVendidos.value.map((item) =>
+      Number(item.quantidade || 0)
+    )
+  );
 });
 
 const indicadores = computed(() => [
@@ -151,11 +170,11 @@ const indicadores = computed(() => [
     descricao:
       resumo.value.cupons === null
         ? "Aguardando integração com a API"
-        : "Cupons registrados no sistema",
+        : "Gerenciar cupons dos clientes",
     valor: resumo.value.cupons,
     icone: "fa-ticket",
     cor: "dourado",
-    rota: null,
+    rota: "/admin/cupons",
   },
   {
     id: "pendentes",
@@ -236,7 +255,13 @@ const normalizarTexto = (valor) => {
 };
 
 const obterStatusCompra = (compra) => {
-  return compra?.status ?? compra?.status_encomenda ?? compra?.situacao ?? compra?.estado ?? "";
+  return (
+    compra?.status ??
+    compra?.status_encomenda ??
+    compra?.situacao ??
+    compra?.estado ??
+    ""
+  );
 };
 
 const normalizarStatusEncomenda = (compra) => {
@@ -264,15 +289,21 @@ const normalizarStatusEncomenda = (compra) => {
 const normalizarStatusVisual = (status) => {
   const valor = normalizarTexto(status);
 
-  if (valor.includes("conclu") || valor.includes("finaliz") || valor.includes("entreg")) {
+  if (
+    valor.includes("conclu") ||
+    valor.includes("finaliz") ||
+    valor.includes("entreg")
+  ) {
     return "concluida";
   }
 
-  if (valor.includes("cancel")) {
-    return "cancelada";
-  }
+  if (valor.includes("cancel")) return "cancelada";
 
-  if (valor.includes("pend") || valor.includes("aguard") || valor.includes("prepar")) {
+  if (
+    valor.includes("pend") ||
+    valor.includes("aguard") ||
+    valor.includes("prepar")
+  ) {
     return "pendente";
   }
 
@@ -292,10 +323,6 @@ const normalizarLista = (dados) => {
   return [];
 };
 
-/*
- * Normaliza os produtos que chegam da API.
- * O ranking é ordenado pela quantidade real informada pelo backend.
- */
 const normalizarProdutosMaisVendidos = (lista) => {
   if (!Array.isArray(lista)) return [];
 
@@ -304,17 +331,24 @@ const normalizarProdutosMaisVendidos = (lista) => {
       ...produto,
       id: produto.id ?? produto.produto_id ?? produto.id_produto,
       nome:
-        produto.nome ?? produto.produto_nome ?? produto.titulo ?? produto.nome_produto ?? "Produto",
+        produto.nome ??
+        produto.produto_nome ??
+        produto.titulo ??
+        produto.nome_produto ??
+        "Produto",
       quantidade: Number(
         produto.quantidade ??
           produto.total_vendido ??
           produto.quantidade_vendida ??
           produto.vendas ??
           produto.total ??
-          0,
+          0
       ),
     }))
-    .filter((produto) => Number.isFinite(produto.quantidade) && produto.quantidade > 0)
+    .filter(
+      (produto) =>
+        Number.isFinite(produto.quantidade) && produto.quantidade > 0
+    )
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5);
 };
@@ -333,11 +367,15 @@ const carregarResumoCompras = async () => {
 
   if (!resposta.ok) {
     throw new Error(
-      dados.detail || dados.erro || "Não foi possível carregar os dados das compras.",
+      dados.detail ||
+        dados.erro ||
+        "Não foi possível carregar os dados das compras."
     );
   }
 
-  const compras = normalizarLista(dados).filter((compra) => compra && typeof compra === "object");
+  const compras = normalizarLista(dados).filter(
+    (compra) => compra && typeof compra === "object"
+  );
 
   const statusNormalizados = compras.map((compra) => ({
     compra,
@@ -346,21 +384,21 @@ const carregarResumoCompras = async () => {
 
   resumo.value.compras = compras.length;
 
-  resumo.value.pendentes = compras.filter((compra) => {
-    return !Boolean(compra.pagamento_confirmado);
-  }).length;
+  resumo.value.pendentes = compras.filter(
+    (compra) => !Boolean(compra.pagamento_confirmado)
+  ).length;
 
-  resumo.value.pagamentos_confirmados = compras.filter((compra) => {
-    return Boolean(compra.pagamento_confirmado);
-  }).length;
+  resumo.value.pagamentos_confirmados = compras.filter(
+    (compra) => Boolean(compra.pagamento_confirmado)
+  ).length;
 
-  resumo.value.encomendas_pendentes = statusNormalizados.filter((item) => {
-    return item.status === "pendente";
-  }).length;
+  resumo.value.encomendas_pendentes = statusNormalizados.filter(
+    (item) => item.status === "pendente"
+  ).length;
 
-  resumo.value.concluidas = statusNormalizados.filter((item) => {
-    return item.status === "finalizado";
-  }).length;
+  resumo.value.concluidas = statusNormalizados.filter(
+    (item) => item.status === "finalizado"
+  ).length;
 };
 
 const carregarDashboard = async () => {
@@ -385,7 +423,9 @@ const carregarDashboard = async () => {
     }
 
     if (!resposta.ok) {
-      throw new Error("Não foi possível carregar os dados do dashboard.");
+      throw new Error(
+        "Não foi possível carregar os dados do dashboard."
+      );
     }
 
     const dados = await resposta.json();
@@ -395,34 +435,60 @@ const carregarDashboard = async () => {
       ...(dados.resumo || {}),
     };
 
+    // O endpoint principal já retorna a quantidade total de cupons.
+    resumo.value.cupons =
+      dados.resumo?.cupons !== undefined &&
+      dados.resumo?.cupons !== null
+        ? Number(dados.resumo.cupons)
+        : 0;
+
+    // Carrega os dados complementares das compras.
     await carregarResumoCompras();
 
-    grafico.value = Array.isArray(dados.grafico) ? dados.grafico : [];
+    grafico.value = Array.isArray(dados.grafico)
+      ? dados.grafico
+      : [];
 
-    ultimasEncomendas.value = normalizarLista(dados.ultimas_encomendas).map((compra) => ({
+    ultimasEncomendas.value = normalizarLista(
+      dados.ultimas_encomendas
+    ).map((compra) => ({
       ...compra,
       id: compra.id ?? compra.idCompra ?? compra.id_compra,
-      cliente: compra.cliente ?? compra.nome_cliente ?? compra.nome ?? "Cliente",
-      data: compra.data ?? compra.criado_em ?? compra.data_compra ?? compra.created_at,
+      cliente:
+        compra.cliente ??
+        compra.nome_cliente ??
+        compra.nome ??
+        "Cliente",
+      data:
+        compra.data ??
+        compra.criado_em ??
+        compra.data_compra ??
+        compra.created_at,
       pagamento:
-        compra.pagamento ?? compra.forma_pagamento ?? compra.formaPagamento ?? "Não informado",
-      total: Number(compra.total ?? compra.valor_total ?? compra.total_compra ?? 0),
-      status: compra.status ?? compra.status_encomenda ?? compra.situacao ?? "Em andamento",
+        compra.pagamento ??
+        compra.forma_pagamento ??
+        compra.formaPagamento ??
+        "Não informado",
+      total: Number(
+        compra.total ??
+          compra.valor_total ??
+          compra.total_compra ??
+          0
+      ),
+      status:
+        compra.status ??
+        compra.status_encomenda ??
+        compra.situacao ??
+        "Em andamento",
     }));
 
-    /*
-     * Aqui está a correção do ranking:
-     * recebe o ranking calculado pelo Django, normaliza,
-     * ordena e apresenta somente os cinco mais vendidos.
-     */
-    produtosMaisVendidos.value = normalizarProdutosMaisVendidos(dados.produtos_mais_vendidos);
+    produtosMaisVendidos.value = normalizarProdutosMaisVendidos(
+      dados.produtos_mais_vendidos
+    );
 
-    alertas.value = Array.isArray(dados.alertas) ? dados.alertas : [];
-
-    resumo.value.cupons =
-      dados.resumo?.cupons !== undefined && dados.resumo?.cupons !== null
-        ? Number(dados.resumo.cupons)
-        : null;
+    alertas.value = Array.isArray(dados.alertas)
+      ? dados.alertas
+      : [];
 
     ultimaAtualizacao.value = new Date();
   } catch (error) {
@@ -435,7 +501,8 @@ const carregarDashboard = async () => {
       return;
     }
 
-    erro.value = error.message || "Erro ao conectar com o servidor.";
+    erro.value =
+      error.message || "Erro ao conectar com o servidor.";
   } finally {
     carregando.value = false;
   }
@@ -491,7 +558,11 @@ onUnmounted(() => {
             {{ dataAtual }}
           </div>
 
-          <button type="button" class="hero-botao" @click="navegar('/admin/produtos')">
+          <button
+            type="button"
+            class="hero-botao"
+            @click="navegar('/admin/produtos')"
+          >
             Gerenciar cardápio
             <i class="fa-solid fa-arrow-right"></i>
           </button>
@@ -536,7 +607,10 @@ onUnmounted(() => {
           :disabled="carregando"
           @click="carregarDashboard"
         >
-          <i class="fa-solid fa-rotate" :class="{ girando: carregando }"></i>
+          <i
+            class="fa-solid fa-rotate"
+            :class="{ girando: carregando }"
+          ></i>
           Atualizar
         </button>
       </div>
@@ -544,8 +618,9 @@ onUnmounted(() => {
       <div v-if="erro" class="erro-dashboard">
         <i class="fa-solid fa-circle-exclamation"></i>
         <span>{{ erro }}</span>
-
-        <button type="button" @click="carregarDashboard">Tentar novamente</button>
+        <button type="button" @click="carregarDashboard">
+          Tentar novamente
+        </button>
       </div>
 
       <div class="metricas">
@@ -585,7 +660,9 @@ onUnmounted(() => {
             </span>
             <i
               :class="
-                item.rota ? 'fa-solid fa-arrow-up-right-from-square' : 'fa-solid fa-chart-line'
+                item.rota
+                  ? 'fa-solid fa-arrow-up-right-from-square'
+                  : 'fa-solid fa-chart-line'
               "
             ></i>
           </div>
@@ -615,7 +692,7 @@ onUnmounted(() => {
       <div v-else-if="!grafico.length" class="grafico-vazio">
         <i class="fa-solid fa-chart-column"></i>
         <strong>Sem dados para exibir</strong>
-        <span> Assim que houver registros, o gráfico aparecerá aqui. </span>
+        <span>Assim que houver registros, o gráfico aparecerá aqui.</span>
       </div>
 
       <div v-else class="grafico-area">
@@ -636,9 +713,15 @@ onUnmounted(() => {
             class="linha-grade"
           />
 
-          <polygon :points="areaGrafico" class="grafico-preenchimento" />
+          <polygon
+            :points="areaGrafico"
+            class="grafico-preenchimento"
+          />
 
-          <polyline :points="pontosGrafico" class="grafico-linha" />
+          <polyline
+            :points="pontosGrafico"
+            class="grafico-linha"
+          />
 
           <circle
             v-for="(ponto, index) in pontosGrafico.split(' ')"
@@ -686,15 +769,24 @@ onUnmounted(() => {
           <p>Os produtos com maior quantidade de vendas.</p>
         </div>
 
-        <button type="button" class="link-encomendas" @click="navegar('/admin/produtos')">
+        <button
+          type="button"
+          class="link-encomendas"
+          @click="navegar('/admin/produtos')"
+        >
           Ver catálogo
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div v-if="carregando" class="estado-lista">Carregando produtos...</div>
+      <div v-if="carregando" class="estado-lista">
+        Carregando produtos...
+      </div>
 
-      <div v-else-if="!produtosMaisVendidos.length" class="estado-lista">
+      <div
+        v-else-if="!produtosMaisVendidos.length"
+        class="estado-lista"
+      >
         <i class="fa-solid fa-basket-shopping"></i>
         <strong>Nenhum produto em destaque.</strong>
         <span>Os produtos mais vendidos aparecerão aqui.</span>
@@ -713,7 +805,7 @@ onUnmounted(() => {
           <div class="ranking-info">
             <div class="ranking-titulo">
               <strong>{{ produto.nome || "Produto" }}</strong>
-              <span> {{ formatarQuantidade(produto.quantidade) }} vendidos </span>
+              <span>{{ formatarQuantidade(produto.quantidade) }} vendidos</span>
             </div>
 
             <div class="ranking-barra">
@@ -721,7 +813,9 @@ onUnmounted(() => {
                 :style="{
                   width: `${Math.min(
                     100,
-                    (Number(produto.quantidade || 0) / maiorVendaProduto) * 100,
+                    (Number(produto.quantidade || 0) /
+                      maiorVendaProduto) *
+                      100
                   )}%`,
                 }"
               ></span>
@@ -739,10 +833,14 @@ onUnmounted(() => {
           <p>Pontos que podem precisar da sua atenção.</p>
         </div>
 
-        <span class="alertas-contagem"> {{ alertas.length }} avisos </span>
+        <span class="alertas-contagem">
+          {{ alertas.length }} avisos
+        </span>
       </div>
 
-      <div v-if="carregando" class="estado-lista">Verificando avisos...</div>
+      <div v-if="carregando" class="estado-lista">
+        Verificando avisos...
+      </div>
 
       <div v-else-if="!alertas.length" class="alerta-vazio">
         <span class="alerta-vazio-icone">
@@ -762,7 +860,13 @@ onUnmounted(() => {
           :class="`alerta-${alerta.tipo || 'info'}`"
         >
           <span class="alerta-icone">
-            <i :class="alerta.icone ? `fa-solid ${alerta.icone}` : 'fa-solid fa-circle-info'"></i>
+            <i
+              :class="
+                alerta.icone
+                  ? `fa-solid ${alerta.icone}`
+                  : 'fa-solid fa-circle-info'
+              "
+            ></i>
           </span>
 
           <div>
@@ -770,7 +874,11 @@ onUnmounted(() => {
             <p>{{ alerta.mensagem || "" }}</p>
           </div>
 
-          <button v-if="alerta.rota" type="button" @click="navegar(alerta.rota)">
+          <button
+            v-if="alerta.rota"
+            type="button"
+            @click="navegar(alerta.rota)"
+          >
             Ver
             <i class="fa-solid fa-arrow-right"></i>
           </button>
@@ -786,32 +894,50 @@ onUnmounted(() => {
           <p>Os pedidos mais recentes registrados.</p>
         </div>
 
-        <button type="button" class="link-encomendas" @click="navegar('/admin/encomendas')">
+        <button
+          type="button"
+          class="link-encomendas"
+          @click="navegar('/admin/encomendas')"
+        >
           Ver todas
           <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
 
-      <div v-if="carregando" class="estado-lista">Carregando encomendas...</div>
+      <div v-if="carregando" class="estado-lista">
+        Carregando encomendas...
+      </div>
 
-      <div v-else-if="!ultimasEncomendas.length" class="estado-lista">
+      <div
+        v-else-if="!ultimasEncomendas.length"
+        class="estado-lista"
+      >
         <i class="fa-regular fa-clipboard"></i>
         <strong>Nenhuma encomenda registrada ainda.</strong>
-        <span> Quando uma encomenda for realizada, ela aparecerá aqui. </span>
+        <span>Quando uma encomenda for realizada, ela aparecerá aqui.</span>
       </div>
 
       <div v-else class="tabela-encomendas">
-        <div v-for="compra in ultimasEncomendas" :key="compra.id" class="encomenda-linha">
+        <div
+          v-for="compra in ultimasEncomendas"
+          :key="compra.id"
+          class="encomenda-linha"
+        >
           <div class="encomenda-icone">
             <i class="fa-solid fa-receipt"></i>
           </div>
 
           <div class="encomenda-cliente">
             <strong>{{ compra.cliente || "Cliente" }}</strong>
-            <small> Pedido #{{ compra.id }} · {{ formatarData(compra.data) }} </small>
+            <small>
+              Pedido #{{ compra.id }} · {{ formatarData(compra.data) }}
+            </small>
           </div>
 
-          <span class="status-encomenda" :class="`status-${normalizarStatusVisual(compra.status)}`">
+          <span
+            class="status-encomenda"
+            :class="`status-${normalizarStatusVisual(compra.status)}`"
+          >
             {{ compra.status || "Em andamento" }}
           </span>
 
@@ -1994,24 +2120,6 @@ onUnmounted(() => {
   .dashboard *::after {
     animation: none !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-.metricas {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-@media (max-width: 1000px) {
-  .metricas {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 480px) {
-  .metricas {
-    grid-template-columns: 1fr;
   }
 }
 </style>
