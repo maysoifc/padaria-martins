@@ -44,7 +44,7 @@ const converterNumero = (valor) => {
 };
 
 // =========================================================
-// PRODUTOS MAIS VENDIDOS
+// PRODUTOS QUERIDINHOS
 // =========================================================
 
 const produtosDestaques = computed(() => {
@@ -52,62 +52,82 @@ const produtosDestaques = computed(() => {
     return [];
   }
 
-  return produtos.value
-    .map((produto) => {
-      const quantidadeComprada = converterNumero(
-        produto.quantidade_vendida ??
-        produto.total_vendido ??
-        produto.quantidade_comprada ??
-        produto.total_compras ??
-        produto.numero_vendas ??
-        produto.vendas ??
-        produto.quantidade_vendas ??
-        produto.compras ??
-        0
-      );
+  const lista = produtos.value.map((produto) => {
+    const quantidadeComprada = converterNumero(
+      produto.quantidade_vendida ??
+      produto.total_vendido ??
+      produto.quantidade_comprada ??
+      produto.total_compras ??
+      produto.numero_vendas ??
+      produto.quantidade_vendas ??
+      produto.vendas ??
+      produto.compras ??
+      0
+    );
 
-      const nota = converterNumero(
-        produto.avaliacao ??
-        produto.media_avaliacoes ??
-        produto.media_avaliacao ??
-        produto.nota_media ??
-        0
-      );
+    const nota = converterNumero(
+      produto.avaliacao ??
+      produto.media_avaliacoes ??
+      produto.media_avaliacao ??
+      produto.nota_media ??
+      0
+    );
 
-      const quantidadeAvaliacoes = converterNumero(
-        produto.quantidade_avaliacoes ??
-        produto.total_avaliacoes ??
-        produto.numero_avaliacoes ??
-        0
-      );
+    const quantidadeAvaliacoes = converterNumero(
+      produto.quantidade_avaliacoes ??
+      produto.total_avaliacoes ??
+      produto.numero_avaliacoes ??
+      0
+    );
 
-      return {
-        ...produto,
-        quantidadeComprada,
-        notaOrdenacao: nota,
-        quantidadeAvaliacoes,
-      };
-    })
+    return {
+      ...produto,
+      quantidadeComprada,
+      notaOrdenacao: nota,
+      quantidadeAvaliacoes,
+    };
+  });
 
-    // Não mostrar produtos sem compras
+  // 1. Priorizar produtos com compras registradas
+  const maisVendidos = lista
     .filter((produto) => produto.quantidadeComprada > 0)
-
-    // Mais vendidos primeiro
     .sort((a, b) => {
       if (b.quantidadeComprada !== a.quantidadeComprada) {
         return b.quantidadeComprada - a.quantidadeComprada;
       }
 
-      // Desempate pela avaliação
       if (b.notaOrdenacao !== a.notaOrdenacao) {
         return b.notaOrdenacao - a.notaOrdenacao;
       }
 
       return b.quantidadeAvaliacoes - a.quantidadeAvaliacoes;
-    })
+    });
 
-    // Exibir no máximo 7 produtos
-    .slice(0, 7);
+  if (maisVendidos.length > 0) {
+    return maisVendidos.slice(0, 7);
+  }
+
+  // 2. Sem compras: priorizar produtos mais avaliados
+  const maisAvaliados = lista
+    .filter(
+      (produto) =>
+        produto.notaOrdenacao > 0 &&
+        produto.notaOrdenacao <= 5
+    )
+    .sort((a, b) => {
+      if (b.notaOrdenacao !== a.notaOrdenacao) {
+        return b.notaOrdenacao - a.notaOrdenacao;
+      }
+
+      return b.quantidadeAvaliacoes - a.quantidadeAvaliacoes;
+    });
+
+  if (maisAvaliados.length > 0) {
+    return maisAvaliados.slice(0, 7);
+  }
+
+  // 3. Sem compras e avaliações: mostrar o catálogo
+  return lista.slice(0, 7);
 });
 
 // =========================================================
@@ -267,7 +287,7 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- MAIS VENDIDOS -->
+    <!-- PRODUTOS QUERIDINHOS -->
 
     <section class="destaques">
       <div class="secao-topo">
@@ -276,7 +296,7 @@ onMounted(async () => {
             OS MAIS QUERIDINHOS
           </span>
 
-          <h2>Nossos mais vendidos</h2>
+          <h2>Nossos queridinhos</h2>
         </div>
 
         <button
@@ -339,8 +359,8 @@ onMounted(async () => {
         v-else
         class="sem-produtos"
       >
-        Ainda não temos produtos com compras registradas.
-        Confira nosso cardápio!
+        Estamos preparando nossos produtos para você.
+        Volte em breve!
       </p>
     </section>
 
